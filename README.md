@@ -26,7 +26,7 @@ bun install
 bun run dev "Artist Name"
 ```
 
-On first run, you'll be prompted for your Deezer ARL token (found in browser cookies at deezer.com → Developer Tools → Application → Cookies → `arl`).
+Before first run, create a `.env` file in the project root (see Configuration section below).
 
 ## Usage
 
@@ -43,20 +43,27 @@ bun run dev "Tame Impala" --dry-run    # Preview only
 
 ## Configuration
 
-Config files are stored in `~/.config/yhdl/`:
+Configuration is stored in a `.env` file in the project root. Create this file by copying `.env.example`:
 
-| File | Purpose |
-|------|---------|
-| `config.json` | Music root path (default: `~/Music`) |
-| `.arl` | Deezer auth token |
-
-Edit `config.json` to change your download location:
-
-```json
-{
-  "musicRootPath": "/path/to/your/music"
-}
+```bash
+cp .env.example .env
 ```
+
+Then edit `.env` with your settings:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DEEZER_ARL` | Your Deezer ARL token (found in browser cookies at deezer.com → Developer Tools → Application → Cookies → `arl`) | Required |
+| `MUSIC_ROOT_PATH` | Where downloaded music will be saved | `~/Music` (or `%USERPROFILE%\Music` on Windows) |
+
+Example `.env` file:
+
+```env
+DEEZER_ARL=your_arl_token_here
+MUSIC_ROOT_PATH=C:\Users\YourName\Music
+```
+
+**Note:** The `.env` file is gitignored and will never be committed to the repository.
 
 ## Folder Structure
 

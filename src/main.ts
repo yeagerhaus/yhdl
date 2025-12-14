@@ -8,7 +8,7 @@ import ora from "ora";
 import cliProgress from "cli-progress";
 import { Deezer, TrackFormats, type DiscographyAlbum } from "./deezer/index.js";
 import { Downloader, type DownloadResult } from "./downloader/index.js";
-import { loadConfig, loadArl, saveArl, getConfigPath } from "./config.js";
+import { loadConfig, loadArl, saveArl, clearArl, getEnvPathForDisplay } from "./config.js";
 import { resolveArtistReleases, createReleaseFolders } from "./folder-resolver.js";
 
 const program = new Command();
@@ -80,7 +80,7 @@ async function main() {
 
 	// Load config
 	const config = loadConfig();
-	printConfig(config.musicRootPath, getConfigPath());
+	printConfig(config.musicRootPath, getEnvPathForDisplay());
 
 	// Initialize Deezer
 	const dz = new Deezer();
@@ -107,22 +107,56 @@ async function main() {
 		arl = arl.trim();
 	}
 
-	// Login
-	const loginSpinner = ora({
-		text: "Logging in to Deezer...",
-		prefixText: " ",
-		color: "magenta",
-	}).start();
+	// Login with retry logic for expired tokens
+	let loggedIn = false;
+	let loginAttempts = 0;
+	const maxLoginAttempts = 2;
 
-	const loggedIn = await dz.loginViaArl(arl);
+	while (!loggedIn && loginAttempts < maxLoginAttempts) {
+		const loginSpinner = ora({
+			text: "Logging in to Deezer...",
+			prefixText: " ",
+			color: "magenta",
+		}).start();
 
-	if (!loggedIn) {
-		loginSpinner.fail(pc.red("Login failed. Please check your ARL token."));
-		process.exit(1);
+		loggedIn = await dz.loginViaArl(arl);
+
+		if (!loggedIn) {
+			loginSpinner.fail(pc.red("Login failed. Your ARL token may be expired or invalid."));
+			
+			// Clear the invalid ARL from .env
+			clearArl();
+			
+			// Prompt for new ARL
+			console.log();
+			console.log(pc.yellow("  ⚠ Please enter a new Deezer ARL token."));
+			console.log(pc.dim("    (You can find this in your browser cookies at deezer.com)\n"));
+
+			const rl = readline.createInterface({
+				input: process.stdin,
+				output: process.stdout,
+			});
+
+			arl = await rl.question(pc.cyan("  Enter ARL: "));
+			rl.close();
+
+			if (!arl || arl.trim().length === 0) {
+				console.error(pc.red("\n  ✗ No ARL provided. Exiting."));
+				process.exit(1);
+			}
+
+			arl = arl.trim();
+			loginAttempts++;
+		} else {
+			loginSpinner.succeed(pc.green(`Logged in as ${pc.bold(dz.currentUser?.name || "Unknown")}`));
+			saveArl(arl);
+		}
 	}
 
-	saveArl(arl);
-	loginSpinner.succeed(pc.green(`Logged in as ${pc.bold(dz.currentUser?.name || "Unknown")}`));
+	if (!loggedIn) {
+		console.error(pc.red("\n  ✗ Failed to login after multiple attempts. Exiting."));
+		process.exit(1);
+	}
 
 	// Check subscription
 	if (bitrate === TrackFormats.FLAC && !dz.currentUser?.can_stream_lossless) {
