@@ -1,0 +1,34 @@
+{
+	"name": "yhdl",
+	"version": "1.0.0",
+	"description": "Standalone music download tool with intelligent folder management",
+	"type": "module",
+	"main": "dist/main.js",
+	"bin": {
+		"yhdl": "dist/main.js"
+	},
+	"scripts": {
+		"dev": "bun run src/main.ts",
+		"build": "bun build src/main.ts --outfile dist/main.js --target bun",
+		"start": "bun run dist/main.js"
+	},
+	"author": "",
+	"license": "MIT",
+	"dependencies": {
+		"cli-progress": "^3.12.0",
+		"commander": "^12.1.0",
+		"got": "^14.4.5",
+		"node-id3": "^0.2.6",
+		"ora": "^9.0.0",
+		"picocolors": "^1.1.1",
+		"tough-cookie": "^5.1.2"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.3.8",
+		"@types/bun": "latest",
+		"@types/cli-progress": "^3.11.6",
+		"@types/node": "^22.15.0",
+		"@types/tough-cookie": "^4.0.5",
+		"typescript": "^5.9.2"
+	}
+}
