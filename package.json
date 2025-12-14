@@ -28,6 +28,14 @@
 	},
 	"author": "",
 	"license": "MIT",
+	"engines": {
+		"bun": ">=1.0.0"
+	},
+	"files": [
+		"dist/",
+		"README.md",
+		"RELEASE_NOTES.md"
+	],
 	"dependencies": {
 		"cli-progress": "^3.12.0",
 		"commander": "^12.1.0",

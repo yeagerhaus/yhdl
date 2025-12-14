@@ -1,0 +1,44 @@
+# Source files (only dist/ is needed for npm)
+src/
+test/
+*.test.ts
+*.test.js
+
+# Development files
+.git/
+.gitignore
+.biome.json
+tsconfig.json
+biome.json
+
+# Config (contains secrets)
+.env
+.env.example
+.arl
+
+# Sync state and logs
+.yhdl/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Development dependencies are handled automatically by npm
+
