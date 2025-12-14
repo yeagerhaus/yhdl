@@ -163,6 +163,77 @@ export function createReleaseFolders(releases: ResolvedRelease[]): void {
 }
 
 /**
+ * Get all existing release folders for an artist
+ */
+export function getExistingReleases(artistPath: string): string[] {
+	if (!fs.existsSync(artistPath)) {
+		return [];
+	}
+
+	try {
+		const entries = fs.readdirSync(artistPath, { withFileTypes: true });
+		return entries
+			.filter((entry) => entry.isDirectory())
+			.map((entry) => entry.name);
+	} catch {
+		return [];
+	}
+}
+
+/**
+ * Match a Deezer album to an existing folder using fuzzy matching
+ * Returns the matching folder name or null
+ */
+export function matchReleaseToFolder(
+	album: DiscographyAlbum,
+	existingFolders: string[]
+): string | null {
+	const albumTitle = album.title.toLowerCase().trim();
+	const albumTitleNormalized = normalizeForMatching(albumTitle);
+
+	// Try exact match first
+	for (const folder of existingFolders) {
+		const folderNormalized = normalizeForMatching(folder);
+		if (folderNormalized === albumTitleNormalized) {
+			return folder;
+		}
+	}
+
+	// Try matching without release type suffix (e.g., "Album Name - Album" matches "Album Name")
+	for (const folder of existingFolders) {
+		const folderWithoutType = folder.replace(/\s*-\s*(Album|EP|Single)$/i, "").trim();
+		const folderNormalized = normalizeForMatching(folderWithoutType);
+		if (folderNormalized === albumTitleNormalized) {
+			return folder;
+		}
+	}
+
+	// Try fuzzy match (contains)
+	for (const folder of existingFolders) {
+		const folderNormalized = normalizeForMatching(folder);
+		if (
+			folderNormalized.includes(albumTitleNormalized) ||
+			albumTitleNormalized.includes(folderNormalized)
+		) {
+			return folder;
+		}
+	}
+
+	return null;
+}
+
+/**
+ * Normalize string for matching (lowercase, remove special chars, normalize spaces)
+ */
+function normalizeForMatching(str: string): string {
+	return str
+		.toLowerCase()
+		.replace(/[^\w\s]/g, "")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+/**
  * Sanitize a string for use as a folder name
  */
 function sanitizeFolderName(name: string): string {

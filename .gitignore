@@ -8,6 +8,9 @@ dist/
 .env
 .arl
 
+# Sync state and logs
+.yhdl/
+
 # OS
 .DS_Store
 Thumbs.db

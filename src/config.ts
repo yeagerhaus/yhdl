@@ -4,10 +4,16 @@ import os from "os";
 
 export interface Config {
 	musicRootPath: string;
+	syncStatePath?: string;
+	errorLogPath?: string;
+	syncConcurrency?: number;
+	syncCheckInterval?: number; // hours
 }
 
 const DEFAULT_CONFIG: Config = {
 	musicRootPath: path.join(os.homedir(), "Music"),
+	syncConcurrency: 5,
+	syncCheckInterval: 24, // hours
 };
 
 /**
@@ -31,14 +37,46 @@ function getEnvPath(): string {
 }
 
 /**
+ * Get the project root directory
+ */
+function getProjectRoot(): string {
+	let currentDir = process.cwd();
+	const root = path.parse(currentDir).root;
+
+	while (currentDir !== root) {
+		const packageJsonPath = path.join(currentDir, "package.json");
+		if (fs.existsSync(packageJsonPath)) {
+			return currentDir;
+		}
+		currentDir = path.dirname(currentDir);
+	}
+
+	return process.cwd();
+}
+
+/**
  * Load config from .env file
  * Bun automatically loads .env files, so we can read from process.env
  */
 export function loadConfig(): Config {
 	const musicRootPath = process.env.MUSIC_ROOT_PATH?.trim();
+	const syncConcurrency = process.env.SYNC_CONCURRENCY
+		? parseInt(process.env.SYNC_CONCURRENCY, 10)
+		: undefined;
+	const syncCheckInterval = process.env.SYNC_CHECK_INTERVAL
+		? parseInt(process.env.SYNC_CHECK_INTERVAL, 10)
+		: undefined;
+
+	const projectRoot = getProjectRoot();
+	const defaultStatePath = path.join(projectRoot, ".yhdl", "sync-state.json");
+	const defaultErrorLogPath = path.join(projectRoot, ".yhdl", "sync-errors.json");
 
 	return {
 		musicRootPath: musicRootPath || DEFAULT_CONFIG.musicRootPath,
+		syncStatePath: process.env.SYNC_STATE_PATH?.trim() || defaultStatePath,
+		errorLogPath: process.env.ERROR_LOG_PATH?.trim() || defaultErrorLogPath,
+		syncConcurrency: syncConcurrency || DEFAULT_CONFIG.syncConcurrency,
+		syncCheckInterval: syncCheckInterval || DEFAULT_CONFIG.syncCheckInterval,
 	};
 }
 

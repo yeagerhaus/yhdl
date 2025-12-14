@@ -10,7 +10,18 @@
 	"scripts": {
 		"dev": "bun run src/main.ts",
 		"build": "bun build src/main.ts --outfile dist/main.js --target bun",
-		"start": "bun run dist/main.js"
+		"start": "bun run dist/main.js",
+		"sync": "bun run src/cli/sync.ts"
+	},
+	"exports": {
+		".": {
+			"import": "./src/index.ts",
+			"types": "./src/index.ts"
+		},
+		"./cli": {
+			"import": "./src/cli/download.ts",
+			"types": "./src/cli/download.ts"
+		}
 	},
 	"author": "",
 	"license": "MIT",
