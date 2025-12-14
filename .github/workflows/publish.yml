@@ -1,0 +1,92 @@
+name: Publish to GitHub Packages
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    # Only trigger on version changes (when package.json version is updated)
+    paths:
+      - 'package.json'
+  release:
+    types: [created]
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build package
+        run: bun run build
+
+      - name: Configure package.json for GitHub Packages
+        run: |
+          # GitHub Packages requires scoped packages (e.g., @owner/package-name)
+          # Temporarily modify package.json for GitHub Packages publishing
+          node << 'EOF'
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const owner = process.env.GITHUB_REPOSITORY_OWNER.toLowerCase();
+          
+          // Store original name for restoration
+          pkg._originalName = pkg.name;
+          
+          // Set scoped name for GitHub Packages
+          pkg.name = `@${owner}/yhdl`;
+          
+          // Update repository field
+          pkg.repository = {
+            type: 'git',
+            url: `https://github.com/${owner}/yhdl.git`
+          };
+          
+          // Add publishConfig for GitHub Packages
+          pkg.publishConfig = {
+            registry: 'https://npm.pkg.github.com'
+          };
+          
+          fs.writeFileSync('package.json', JSON.stringify(pkg, null, '\t'));
+          EOF
+        env:
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+
+      - name: Configure npm for GitHub Packages
+        run: |
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "@${OWNER}:registry=https://npm.pkg.github.com" >> .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> .npmrc
+
+      - name: Publish to GitHub Packages
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Restore original package.json
+        if: always()
+        run: |
+          node << 'EOF'
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          if (pkg._originalName) {
+            pkg.name = pkg._originalName;
+            delete pkg._originalName;
+            delete pkg.publishConfig;
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, '\t'));
+          }
+          EOF
+

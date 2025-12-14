@@ -28,6 +28,10 @@
 	},
 	"author": "",
 	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/YOUR_USERNAME/yhdl.git"
+	},
 	"engines": {
 		"bun": ">=1.0.0"
 	},
