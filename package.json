@@ -1,6 +1,6 @@
 {
 	"name": "yhdl",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"description": "Standalone music download tool with intelligent folder management",
 	"type": "module",
 	"main": "./src/index.ts",
@@ -15,7 +15,11 @@
 		"sync": "bun run src/cli/sync.ts",
 		"test": "bun test",
 		"test:watch": "bun test --watch",
-		"test:coverage": "bun test --coverage"
+		"test:coverage": "bun test --coverage",
+		"version:patch": "node scripts/bump-version.js patch",
+		"version:minor": "node scripts/bump-version.js minor",
+		"version:major": "node scripts/bump-version.js major",
+		"version:auto": "node scripts/bump-version.js auto"
 	},
 	"exports": {
 		".": {

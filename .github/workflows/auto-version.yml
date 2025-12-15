@@ -1,0 +1,46 @@
+name: Auto Bump Version
+
+# Optional workflow - uncomment the trigger if you want auto-versioning on every push
+# This will automatically bump the version based on commit count
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    # Only run if package.json wasn't manually changed (to avoid loops)
+    paths-ignore:
+      - 'package.json'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Needed to commit version bump
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Need full history for commit counting
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Auto-bump version
+        id: bump
+        run: |
+          node scripts/bump-version.js auto
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Commit version bump
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add package.json
+          git commit -m "chore: auto-bump version to ${{ steps.bump.outputs.version }}" || exit 0
+          git push
