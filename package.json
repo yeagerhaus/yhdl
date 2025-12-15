@@ -3,13 +3,14 @@
 	"version": "1.0.0",
 	"description": "Standalone music download tool with intelligent folder management",
 	"type": "module",
-	"main": "dist/main.js",
+	"main": "./src/index.ts",
+	"types": "./src/index.ts",
 	"bin": {
-		"yhdl": "dist/main.js"
+		"yhdl": "./src/main.ts"
 	},
 	"scripts": {
 		"dev": "bun run src/main.ts",
-		"build": "bun build src/main.ts --outfile dist/main.js --target bun",
+		"build": "bun build src/main.ts --outfile dist/main.js --target bun && bun build src/index.ts --outfile dist/index.js --target bun",
 		"start": "bun run dist/main.js",
 		"sync": "bun run src/cli/sync.ts",
 		"test": "bun test",
@@ -19,11 +20,12 @@
 	"exports": {
 		".": {
 			"import": "./src/index.ts",
-			"types": "./src/index.ts"
+			"types": "./src/index.ts",
+			"default": "./src/index.ts"
 		},
 		"./cli": {
-			"import": "./src/cli/download.ts",
-			"types": "./src/cli/download.ts"
+			"import": "./src/main.ts",
+			"types": "./src/main.ts"
 		}
 	},
 	"author": "",
@@ -36,6 +38,7 @@
 		"bun": ">=1.0.0"
 	},
 	"files": [
+		"src/",
 		"dist/",
 		"README.md",
 		"RELEASE_NOTES.md"

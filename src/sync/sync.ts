@@ -38,6 +38,7 @@ export interface SyncOptions {
 	statePath?: string;
 	errorLogPath?: string;
 	specificArtist?: string; // If provided, only sync this artist
+	deezerArl?: string; // Override ARL from config
 }
 
 export interface SyncResult {
@@ -187,11 +188,11 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 	// Initialize Deezer
 	const dz = new Deezer();
 
-	// Login (ARL should be in .env)
+	// Login (ARL from options, config, or .env)
 	const { loadArl } = await import("../config.js");
-	const arl = loadArl();
+	const arl = options.deezerArl || loadArl();
 	if (!arl) {
-		throw new Error("DEEZER_ARL not found in .env file");
+		throw new Error("DEEZER_ARL not found. Provide it via options.deezerArl, setConfig(), or DEEZER_ARL environment variable.");
 	}
 
 	const loggedIn = await dz.loginViaArl(arl);

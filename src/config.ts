@@ -8,6 +8,7 @@ export interface Config {
 	errorLogPath?: string;
 	syncConcurrency?: number;
 	syncCheckInterval?: number; // hours
+	deezerArl?: string;
 }
 
 const DEFAULT_CONFIG: Config = {
@@ -15,6 +16,38 @@ const DEFAULT_CONFIG: Config = {
 	syncConcurrency: 5,
 	syncCheckInterval: 24, // hours
 };
+
+// Global programmatic config (takes precedence over env vars)
+let globalConfig: Config | null = null;
+let globalArl: string | null = null;
+
+/**
+ * Set configuration programmatically (overrides environment variables)
+ */
+export function setConfig(config: Config): void {
+	globalConfig = config;
+	if (config.deezerArl !== undefined) {
+		globalArl = config.deezerArl || null;
+	}
+}
+
+/**
+ * Clear programmatic configuration (for testing)
+ */
+export function clearConfig(): void {
+	globalConfig = null;
+	globalArl = null;
+}
+
+/**
+ * Get configuration (checks programmatic config first, then environment variables)
+ */
+export function getConfig(): Config {
+	if (globalConfig) {
+		return globalConfig;
+	}
+	return loadConfig();
+}
 
 /**
  * Get the .env file path in the project root
@@ -81,9 +114,18 @@ export function loadConfig(): Config {
 }
 
 /**
- * Load ARL from .env file
+ * Load ARL from programmatic config or .env file
  */
 export function loadArl(): string | null {
+	// Check programmatic config first
+	if (globalArl) {
+		return globalArl;
+	}
+	// Check global config
+	if (globalConfig?.deezerArl) {
+		return globalConfig.deezerArl;
+	}
+	// Fall back to environment variable
 	const arl = process.env.DEEZER_ARL?.trim();
 	return arl && arl.length > 0 ? arl : null;
 }
