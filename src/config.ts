@@ -26,9 +26,17 @@ let globalArl: string | null = null;
  */
 export function setConfig(config: Config): void {
 	globalConfig = config;
-	if (config.deezerArl) {
-		globalArl = config.deezerArl;
+	if (config.deezerArl !== undefined) {
+		globalArl = config.deezerArl || null;
 	}
+}
+
+/**
+ * Clear programmatic configuration (for testing)
+ */
+export function clearConfig(): void {
+	globalConfig = null;
+	globalArl = null;
 }
 
 /**

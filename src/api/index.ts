@@ -30,7 +30,7 @@ export { loadFailureLog, writeFailureLog, clearFailureLog } from "../sync/logger
 export type { SyncSummary, FailureLogEntry } from "../sync/logger.js";
 
 // Config
-export { loadConfig, getConfig, setConfig, loadArl, saveArl, clearArl, getEnvPathForDisplay } from "../config.js";
+export { loadConfig, getConfig, setConfig, clearConfig, loadArl, saveArl, clearArl, getEnvPathForDisplay } from "../config.js";
 export type { Config } from "../config.js";
 
 // Folder operations
