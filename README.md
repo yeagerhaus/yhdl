@@ -63,8 +63,6 @@ DEEZER_ARL=your_arl_token_here
 MUSIC_ROOT_PATH=C:\Users\YourName\Music
 ```
 
-**Note:** The `.env` file is gitignored and will never be committed to the repository.
-
 ## Folder Structure
 
 ```
