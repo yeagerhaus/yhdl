@@ -471,27 +471,31 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 			if (newReleases.length > 0 && !dryRun) {
 				// Create release progress bar for single artist mode
 				if (specificArtist && newReleases.length > 1) {
+					console.log(); // Add spacing before progress bar
 					progressBars.release = new cliProgress.SingleBar({
-						format: pc.dim("  │ ") + pc.magenta("{bar}") + pc.dim(" │ ") + pc.white("{percentage}%") + pc.dim(" │ ") + pc.yellow("{value}") + pc.dim("/") + pc.yellow("{total}") + pc.dim(" releases") + pc.dim(" │ ") + pc.dim("{message}"),
+						format: pc.dim("  │ ") + pc.magenta("{bar}") + pc.dim(" │ ") + pc.white("{percentage}%") + pc.dim(" │ ") + pc.yellow("{value}") + pc.dim("/") + pc.yellow("{total}") + pc.dim(" releases") + pc.dim(" │ ") + pc.cyan("{message}"),
 						barCompleteChar: "█",
 						barIncompleteChar: "░",
 						hideCursor: true,
-						clearOnComplete: false,
+						clearOnComplete: true,
 						barsize: 30,
 					});
 					progressBars.release.start(newReleases.length, 0, { message: "Starting downloads..." });
 				}
 			}
 
-			for (let releaseIdx = 0; releaseIdx < newReleases.length; releaseIdx++) {
+					for (let releaseIdx = 0; releaseIdx < newReleases.length; releaseIdx++) {
 				const release = newReleases[releaseIdx];
-				activeReleaseIndex = releaseIdx + 1;
+				const currentReleaseIdx = releaseIdx; // Capture for closure
+				activeReleaseIndex = releaseIdx;
 				activeReleaseTitle = release.album.title;
 
 				try {
 					// Log release start for single artist mode
 					if (specificArtist && newReleases.length > 0) {
-						console.log();
+						if (releaseIdx > 0) {
+							console.log(); // Add spacing between releases
+						}
 						console.log(pc.cyan(`  📀 Downloading: ${release.album.title}`));
 						if (release.album.release_date) {
 							console.log(pc.dim(`     Release Date: ${release.album.release_date}`));
@@ -506,16 +510,22 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 						// onReleaseStart
 						(release, index, total) => {
 							if (specificArtist) {
-								activeReleaseIndex = index;
+								activeReleaseIndex = index - 1; // Convert to 0-based
 								activeReleaseTitle = release.album.title;
 							}
 						},
 						// onReleaseComplete
 						(release, results) => {
+							// Update release progress bar (1-based for display)
 							if (progressBars.release) {
-								progressBars.release.update(activeReleaseIndex, {
+								progressBars.release.update(currentReleaseIdx + 1, {
 									message: release.album.title.slice(0, 30),
 								});
+							}
+							// Stop track progress bar when release completes
+							if (progressBars.track) {
+								progressBars.track.stop();
+								progressBars.track = null;
 							}
 							if (specificArtist) {
 								const successCount = results.filter((r) => r.success).length;
@@ -530,29 +540,38 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 							activeTrackTitle = track.title;
 							
 							if (specificArtist) {
-								// Create track progress bar on first track
+								// Create track progress bar on first track of release
 								if (index === 1) {
 									if (progressBars.track) {
 										progressBars.track.stop();
 									}
 									progressBars.track = new cliProgress.SingleBar({
-										format: pc.dim("    │ ") + pc.green("{bar}") + pc.dim(" │ ") + pc.white("{percentage}%") + pc.dim(" │ ") + pc.yellow("{value}") + pc.dim("/") + pc.yellow("{total}") + pc.dim(" │ ") + pc.cyan("{message}"),
+										format: pc.dim("    │ ") + pc.green("{bar}") + pc.dim(" │ ") + pc.white("{percentage}%") + pc.dim(" │ ") + pc.yellow("{value}") + pc.dim("/") + pc.yellow("{total}") + pc.dim(" tracks") + pc.dim(" │ ") + pc.cyan("{message}"),
 										barCompleteChar: "█",
 										barIncompleteChar: "░",
 										hideCursor: true,
-										clearOnComplete: false,
+										clearOnComplete: true,
 										barsize: 25,
 									});
 									progressBars.track.start(total, 0, { message: track.title.slice(0, 40) });
+								} else if (progressBars.track) {
+									// Update track number for subsequent tracks
+									progressBars.track.update(index - 1, {
+										message: track.title.slice(0, 40),
+									});
 								}
 							}
 						},
 						// onTrackProgress
 						(progress) => {
 							if (progressBars.track && specificArtist) {
-								// Update the current track's download progress (we show this in the message)
+								// Show download progress for current track in the message
+								// Keep the track number in the bar, show download progress in message
+								const downloadPercent = progress.total > 0 
+									? Math.round((progress.downloaded / progress.total) * 100) 
+									: 0;
 								progressBars.track.update(activeTrackIndex - 1, {
-									message: `${progress.trackTitle.slice(0, 35)} (${formatBytes(progress.downloaded)}/${formatBytes(progress.total)})`,
+									message: `${progress.trackTitle.slice(0, 30)} (${downloadPercent}% - ${formatBytes(progress.downloaded)}/${formatBytes(progress.total)})`,
 								});
 							}
 						},
@@ -564,10 +583,7 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 								progressBars.track.update(index - 1, {
 									message: result.trackTitle.slice(0, 40),
 								});
-								if (index === total) {
-									progressBars.track.stop();
-									progressBars.track = null;
-								}
+								// Don't stop here - let onReleaseComplete handle it for cleaner output
 							}
 							if (specificArtist && !result.success) {
 								console.log(pc.red(`    ✗ ${result.trackTitle}: ${result.error || "Failed"}`));
@@ -619,9 +635,13 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 		artistProgressBar.stop();
 		console.log();
 	}
+	// Release progress bar - ensure it shows completion
 	if (progressBars.release) {
+		// The progress bar should already be at the final count from onReleaseComplete callbacks
+		// But ensure it's at 100% if we completed all releases
 		progressBars.release.stop();
 	}
+	// Track progress bar should already be stopped, but ensure cleanup
 	if (progressBars.track) {
 		progressBars.track.stop();
 	}
