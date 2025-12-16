@@ -10,6 +10,7 @@ import { Deezer, TrackFormats, type DiscographyAlbum } from "../deezer/index.js"
 import { Downloader, type DownloadResult } from "../downloader/index.js";
 import { loadConfig, loadArl, saveArl, clearArl, getEnvPathForDisplay } from "../config.js";
 import { resolveArtistReleases, createReleaseFolders } from "../folder-resolver.js";
+import { parseBitrate } from "../utils.js";
 
 const program = new Command();
 
@@ -77,10 +78,12 @@ export async function downloadArtist(cmd?: Command) {
 	if (cmd) {
 		command = cmd;
 	} else {
-		command = getProgram();
-		if (!command.args.length) {
-			command.parse(process.argv.slice(2));
-		}
+		// Create a temporary command for backward compatibility
+		command = new Command();
+		command.argument("<artist>", "Artist name to search and download");
+		command.option("-b, --bitrate <type>", "Bitrate: flac, 320, 128", "flac");
+		command.option("--dry-run", "Preview what would be downloaded without actually downloading");
+		command.parse(process.argv.slice(2));
 	}
 	
 	const artistQuery = command.args[0];
@@ -361,19 +364,4 @@ export async function downloadArtist(cmd?: Command) {
 	process.exit(failed.length > 0 ? 1 : 0);
 }
 
-function parseBitrate(bitrate: string): number {
-	switch (bitrate.toLowerCase()) {
-		case "flac":
-			return TrackFormats.FLAC;
-		case "320":
-		case "mp3_320":
-			return TrackFormats.MP3_320;
-		case "128":
-		case "mp3_128":
-			return TrackFormats.MP3_128;
-		default:
-			console.log(pc.yellow(`  ⚠ Unknown bitrate "${bitrate}", defaulting to FLAC`));
-			return TrackFormats.FLAC;
-	}
-}
 

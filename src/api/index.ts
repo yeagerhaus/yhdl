@@ -2,6 +2,9 @@
 export { scanLibrary, extractArtistsFromMetadata, extractArtistsFromFolders, normalizeArtistName } from "../library/scanner.js";
 export type { LibraryArtist, ScanOptions } from "../library/types.js";
 
+// Utilities
+export { parseBitrate } from "../utils.js";
+
 // Sync operations
 export { syncLibrary, checkArtist } from "../sync/sync.js";
 export type { SyncOptions, SyncResult, NewRelease } from "../sync/sync.js";

@@ -1,6 +1,6 @@
 export interface ArtistState {
 	name: string;
-	lastChecked: string; // ISO timestamp
+	lastChecked?: string; // ISO timestamp (optional to allow deletion)
 	lastReleaseDate?: string;
 	deezerId?: number;
 	existingReleases?: string[]; // Cached list of release folder names that exist

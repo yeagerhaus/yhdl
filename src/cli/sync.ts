@@ -6,6 +6,7 @@ import pc from "picocolors";
 import { syncLibrary } from "../sync/sync.js";
 import { loadConfig, loadArl, saveArl, clearArl } from "../config.js";
 import { Deezer, TrackFormats } from "../deezer/index.js";
+import { parseBitrate } from "../utils.js";
 import ora from "ora";
 
 const program = new Command();
@@ -22,20 +23,6 @@ program
 	.option("-b, --bitrate <type>", "Bitrate: flac, 320, 128", "flac")
 	.parse();
 
-function parseBitrate(bitrate: string): number {
-	switch (bitrate.toLowerCase()) {
-		case "flac":
-			return TrackFormats.FLAC;
-		case "320":
-		case "mp3_320":
-			return TrackFormats.MP3_320;
-		case "128":
-		case "mp3_128":
-			return TrackFormats.MP3_128;
-		default:
-			return TrackFormats.FLAC;
-	}
-}
 
 export async function syncCommand() {
 	const opts = program.opts<{
@@ -139,5 +126,13 @@ export async function syncCommand() {
 
 	// Exit with appropriate code
 	process.exit(result.summary.failedTracks > 0 ? 1 : 0);
+}
+
+// Run the command if this file is executed directly
+if (import.meta.main) {
+	syncCommand().catch((e) => {
+		console.error(pc.red("Error:"), e.message);
+		process.exit(1);
+	});
 }
 

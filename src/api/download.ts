@@ -2,6 +2,7 @@ import { Deezer, TrackFormats, type DiscographyAlbum, type APIArtist } from "../
 import { Downloader, type DownloadResult } from "../downloader/index.js";
 import { resolveArtistReleases, createReleaseFolders, type ResolvedRelease } from "../folder-resolver.js";
 import { loadArl, getConfig } from "../config.js";
+import { parseBitrate } from "../utils.js";
 
 export interface DownloadArtistOptions {
 	artistName: string;
@@ -19,27 +20,6 @@ export interface DownloadArtistResult {
 	downloadResults: DownloadResult[];
 	downloadedTracks: number;
 	failedTracks: number;
-}
-
-function parseBitrate(bitrate: number | string | undefined): number {
-	if (typeof bitrate === "number") {
-		return bitrate;
-	}
-	if (typeof bitrate === "string") {
-		switch (bitrate.toLowerCase()) {
-			case "flac":
-				return TrackFormats.FLAC;
-			case "320":
-			case "mp3_320":
-				return TrackFormats.MP3_320;
-			case "128":
-			case "mp3_128":
-				return TrackFormats.MP3_128;
-			default:
-				return TrackFormats.FLAC;
-		}
-	}
-	return TrackFormats.FLAC;
 }
 
 /**

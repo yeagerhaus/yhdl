@@ -14,6 +14,7 @@
 		"start": "bun run dist/main.js",
 		"sync": "bun run src/cli/sync.ts",
 		"sync:scheduled": "bun run src/cli/scheduled-sync.ts",
+		"cache:clear": "bun run src/cli/cache.ts",
 		"ignore:add": "bun run scripts/manage-ignored-artists.js add",
 		"ignore:remove": "bun run scripts/manage-ignored-artists.js remove",
 		"ignore:list": "bun run scripts/manage-ignored-artists.js list",

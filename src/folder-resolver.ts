@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import type { DiscographyAlbum } from "./deezer/types.js";
+import { normalizeArtistName } from "./library/scanner.js";
 
 export type ReleaseType = "Album" | "EP" | "Single";
 
@@ -244,11 +245,8 @@ export function matchReleaseToFolder(
  * Normalize string for matching (lowercase, remove special chars, normalize spaces)
  */
 function normalizeForMatching(str: string): string {
-	return str
-		.toLowerCase()
-		.replace(/[^\w\s]/g, "")
-		.replace(/\s+/g, " ")
-		.trim();
+	// Use normalizeArtistName which does the same normalization
+	return normalizeArtistName(str);
 }
 
 /**

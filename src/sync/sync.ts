@@ -37,6 +37,17 @@ import cliProgress from "cli-progress";
 import pc from "picocolors";
 import path from "path";
 
+/**
+ * Format bytes to human-readable string
+ */
+function formatBytes(bytes: number): string {
+	if (bytes === 0) return "0 B";
+	const k = 1024;
+	const sizes = ["B", "KB", "MB", "GB"];
+	const i = Math.floor(Math.log(bytes) / Math.log(k));
+	return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
+}
+
 export interface SyncOptions {
 	musicRootPath: string;
 	bitrate?: number;
@@ -103,7 +114,12 @@ async function downloadRelease(
 	dz: Deezer,
 	release: ResolvedRelease,
 	bitrate: number,
-	dryRun: boolean
+	dryRun: boolean,
+	onReleaseStart?: (release: ResolvedRelease, index: number, total: number) => void,
+	onReleaseComplete?: (release: ResolvedRelease, results: DownloadResult[]) => void,
+	onTrackStart?: (track: { title: string; id: number }, index: number, total: number) => void,
+	onTrackProgress?: (progress: { downloaded: number; total: number; trackTitle: string }) => void,
+	onTrackComplete?: (result: DownloadResult, index: number, total: number) => void
 ): Promise<DownloadResult[]> {
 	if (dryRun) {
 		// Return mock results for dry run
@@ -124,9 +140,34 @@ async function downloadRelease(
 	const downloader = new Downloader(dz, {
 		bitrate,
 		downloadPath: release.folderPath,
+		onTrackStart: (trackInfo, index, total) => {
+			if (onTrackStart) {
+				onTrackStart({ title: trackInfo.title, id: trackInfo.id }, index, total);
+			}
+		},
+		onTrackComplete: (result, index, total) => {
+			if (onTrackComplete) {
+				onTrackComplete(result, index, total);
+			}
+		},
+		onProgress: (progress) => {
+			if (onTrackProgress) {
+				onTrackProgress({
+					downloaded: progress.downloaded,
+					total: progress.total,
+					trackTitle: progress.trackTitle,
+				});
+			}
+		},
 	});
 
-	return downloader.downloadAlbum(release.album.id, release.album.title);
+	const results = await downloader.downloadAlbum(release.album.id, release.album.title);
+	
+	if (onReleaseComplete) {
+		onReleaseComplete(release, results);
+	}
+
+	return results;
 }
 
 /**
@@ -326,6 +367,34 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 		console.log();
 	}
 
+	// Create progress bar for artist checking (only if multiple artists)
+	let artistProgressBar: cliProgress.SingleBar | null = null;
+	if (artistsToProcess.length > 1) {
+		artistProgressBar = new cliProgress.SingleBar({
+			format: pc.dim("  │ ") + pc.cyan("{bar}") + pc.dim(" │ ") + pc.white("{percentage}%") + pc.dim(" │ ") + pc.yellow("{value}") + pc.dim("/") + pc.yellow("{total}") + pc.dim(" artists") + pc.dim(" │ ") + pc.dim("{message}"),
+			barCompleteChar: "█",
+			barIncompleteChar: "░",
+			hideCursor: true,
+			clearOnComplete: false,
+			barsize: 30,
+		});
+		artistProgressBar.start(artistsToProcess.length, 0, { message: "Checking artists..." });
+	}
+
+	// Track active downloads for single artist mode
+	let activeReleaseIndex = 0;
+	let activeTrackIndex = 0;
+	let activeTrackTotal = 0;
+	let activeReleaseTitle = "";
+	let activeTrackTitle = "";
+	const progressBars: {
+		track: cliProgress.SingleBar | null;
+		release: cliProgress.SingleBar | null;
+	} = {
+		track: null,
+		release: null,
+	};
+
 	// Process artists in batches
 	const artistResults = await processArtistsBatch(
 		artistsToProcess,
@@ -388,13 +457,123 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 
 			logArtistCheck(libraryArtist.name, artistId, newReleases.length, false);
 
+			// Update progress bar for artist checking
+			if (artistProgressBar) {
+				artistProgressBar.update(checkedArtists + skippedArtists, {
+					message: libraryArtist.name.slice(0, 30),
+				});
+			}
+
 			// Update state
 			updateArtistCheck(state, artistId, libraryArtist.name);
 
 			// Download new releases
-			for (const release of newReleases) {
+			if (newReleases.length > 0 && !dryRun) {
+				// Create release progress bar for single artist mode
+				if (specificArtist && newReleases.length > 1) {
+					progressBars.release = new cliProgress.SingleBar({
+						format: pc.dim("  │ ") + pc.magenta("{bar}") + pc.dim(" │ ") + pc.white("{percentage}%") + pc.dim(" │ ") + pc.yellow("{value}") + pc.dim("/") + pc.yellow("{total}") + pc.dim(" releases") + pc.dim(" │ ") + pc.dim("{message}"),
+						barCompleteChar: "█",
+						barIncompleteChar: "░",
+						hideCursor: true,
+						clearOnComplete: false,
+						barsize: 30,
+					});
+					progressBars.release.start(newReleases.length, 0, { message: "Starting downloads..." });
+				}
+			}
+
+			for (let releaseIdx = 0; releaseIdx < newReleases.length; releaseIdx++) {
+				const release = newReleases[releaseIdx];
+				activeReleaseIndex = releaseIdx + 1;
+				activeReleaseTitle = release.album.title;
+
 				try {
-					const results = await downloadRelease(dz, release, bitrate, dryRun);
+					// Log release start for single artist mode
+					if (specificArtist && newReleases.length > 0) {
+						console.log();
+						console.log(pc.cyan(`  📀 Downloading: ${release.album.title}`));
+						if (release.album.release_date) {
+							console.log(pc.dim(`     Release Date: ${release.album.release_date}`));
+						}
+					}
+
+					const results = await downloadRelease(
+						dz,
+						release,
+						bitrate,
+						dryRun,
+						// onReleaseStart
+						(release, index, total) => {
+							if (specificArtist) {
+								activeReleaseIndex = index;
+								activeReleaseTitle = release.album.title;
+							}
+						},
+						// onReleaseComplete
+						(release, results) => {
+							if (progressBars.release) {
+								progressBars.release.update(activeReleaseIndex, {
+									message: release.album.title.slice(0, 30),
+								});
+							}
+							if (specificArtist) {
+								const successCount = results.filter((r) => r.success).length;
+								const failCount = results.filter((r) => !r.success).length;
+								console.log(pc.green(`  ✓ Completed: ${release.album.title} (${successCount} tracks${failCount > 0 ? `, ${failCount} failed` : ""})`));
+							}
+						},
+						// onTrackStart
+						(track, index, total) => {
+							activeTrackIndex = index;
+							activeTrackTotal = total;
+							activeTrackTitle = track.title;
+							
+							if (specificArtist) {
+								// Create track progress bar on first track
+								if (index === 1) {
+									if (progressBars.track) {
+										progressBars.track.stop();
+									}
+									progressBars.track = new cliProgress.SingleBar({
+										format: pc.dim("    │ ") + pc.green("{bar}") + pc.dim(" │ ") + pc.white("{percentage}%") + pc.dim(" │ ") + pc.yellow("{value}") + pc.dim("/") + pc.yellow("{total}") + pc.dim(" │ ") + pc.cyan("{message}"),
+										barCompleteChar: "█",
+										barIncompleteChar: "░",
+										hideCursor: true,
+										clearOnComplete: false,
+										barsize: 25,
+									});
+									progressBars.track.start(total, 0, { message: track.title.slice(0, 40) });
+								}
+							}
+						},
+						// onTrackProgress
+						(progress) => {
+							if (progressBars.track && specificArtist) {
+								// Update the current track's download progress (we show this in the message)
+								progressBars.track.update(activeTrackIndex - 1, {
+									message: `${progress.trackTitle.slice(0, 35)} (${formatBytes(progress.downloaded)}/${formatBytes(progress.total)})`,
+								});
+							}
+						},
+						// onTrackComplete
+						(result, index, total) => {
+							activeTrackIndex = index;
+							if (progressBars.track && specificArtist) {
+								// Update progress bar to show completed track (0-based index)
+								progressBars.track.update(index - 1, {
+									message: result.trackTitle.slice(0, 40),
+								});
+								if (index === total) {
+									progressBars.track.stop();
+									progressBars.track = null;
+								}
+							}
+							if (specificArtist && !result.success) {
+								console.log(pc.red(`    ✗ ${result.trackTitle}: ${result.error || "Failed"}`));
+							}
+						}
+					);
 					allDownloadResults.push(...results);
 
 					// Log failures
@@ -433,6 +612,19 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 			}
 		}
 	);
+
+	// Clean up progress bars
+	if (artistProgressBar) {
+		artistProgressBar.update(artistsToProcess.length, { message: "Complete" });
+		artistProgressBar.stop();
+		console.log();
+	}
+	if (progressBars.release) {
+		progressBars.release.stop();
+	}
+	if (progressBars.track) {
+		progressBars.track.stop();
+	}
 
 	// Update last full sync
 	if (!specificArtist) {

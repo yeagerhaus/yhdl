@@ -63,10 +63,10 @@ export function updateArtistCheck(
 	timestamp: Date = new Date()
 ): void {
 	state.artists[artistId] = {
+		...(state.artists[artistId] || {}),
 		name: artistName,
 		lastChecked: timestamp.toISOString(),
 		deezerId: artistId,
-		...(state.artists[artistId] || {}),
 	};
 }
 
@@ -267,5 +267,35 @@ export function removeIgnoredArtist(state: SyncState, artistName: string): void 
  */
 export function getIgnoredArtists(state: SyncState): string[] {
 	return state.ignoredArtists || [];
+}
+
+/**
+ * Clear check history (lastChecked timestamps) for all artists
+ * Preserves ignored artists, artist names, and other metadata
+ */
+export function clearCheckHistory(state: SyncState): void {
+	for (const artistId in state.artists) {
+		if (state.artists[artistId]) {
+			// Remove lastChecked but keep other data
+			state.artists[artistId].lastChecked = undefined;
+		}
+	}
+}
+
+/**
+ * Clear library scan cache
+ * Preserves check history and ignored artists
+ */
+export function clearLibraryCache(state: SyncState): void {
+	delete state.libraryCache;
+}
+
+/**
+ * Clear all cache (check history and library cache)
+ * Preserves ignored artists
+ */
+export function clearAllCache(state: SyncState): void {
+	clearCheckHistory(state);
+	clearLibraryCache(state);
 }
 

@@ -9,6 +9,7 @@
 import { syncLibrary } from "../sync/sync.js";
 import { loadConfig, loadArl } from "../config.js";
 import { Deezer, TrackFormats } from "../deezer/index.js";
+import { parseBitrate } from "../utils.js";
 import pc from "picocolors";
 import fs from "fs";
 import path from "path";
@@ -38,20 +39,6 @@ for (let i = 0; i < args.length; i++) {
 	}
 }
 
-function parseBitrate(bitrate: string): number {
-	switch (bitrate?.toLowerCase()) {
-		case "flac":
-			return TrackFormats.FLAC;
-		case "320":
-		case "mp3_320":
-			return TrackFormats.MP3_320;
-		case "128":
-		case "mp3_128":
-			return TrackFormats.MP3_128;
-		default:
-			return TrackFormats.FLAC;
-	}
-}
 
 function log(message: string) {
 	const timestamp = new Date().toISOString();
