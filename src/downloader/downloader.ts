@@ -173,9 +173,7 @@ export class Downloader {
 			}
 
 			// Tag the file
-			if (actualExtension === ".mp3") {
-				await tagTrack(filePath, trackInfo, coverPath);
-			}
+			await tagTrack(filePath, trackInfo, coverPath);
 
 			return {
 				success: true,
