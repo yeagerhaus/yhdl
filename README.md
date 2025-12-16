@@ -49,6 +49,9 @@ bun run dev "Tame Impala" --dry-run
 bun run dev download "Tame Impala"
 bun run dev download "Tame Impala" -b 320
 bun run dev download "Tame Impala" --dry-run
+
+# Using the alias
+bun run dev d "Tame Impala"
 ```
 
 | Option | Description |
@@ -63,6 +66,9 @@ Sync your entire music library to find and download new releases:
 ```bash
 # Sync all artists (skips recently checked ones)
 bun run sync
+# Or using the main entry point
+bun run dev sync
+bun run dev s  # Using alias
 
 # Force check all artists
 bun run sync --full
@@ -256,7 +262,7 @@ bun run tag:existing --dry-run
 
 | Option | Description |
 |--------|-------------|
-| `-p, --path <path>` | Music root path to tag (default: current directory) |
+| `-p, --path <path>` | Music root path to tag (default: current working directory) |
 | `--dry-run` | Preview what would be tagged without making changes |
 
 This command scans your music library and adds `RELEASETYPE` tags (album, ep, or single) to files based on the number of tracks in each release directory.
@@ -284,7 +290,10 @@ const syncResult = await syncLibrary({
   bitrate: "flac",
   concurrency: 5,
   checkIntervalHours: 24,
-  deezerArl: "your_arl_token",
+  fullSync: false, // Set to true to check all artists regardless of last check time
+  dryRun: false, // Set to true to preview without downloading
+  specificArtist: undefined, // Optional: sync only this artist
+  deezerArl: "your_arl_token", // Optional: override ARL from config
 });
 
 console.log(`Found ${syncResult.summary.newReleases} new releases`);
