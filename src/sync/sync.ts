@@ -481,7 +481,7 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 						clearOnComplete: true,
 						barsize: 30,
 					});
-					progressBars.release.start(newReleases.length, 0, { message: "Starting downloads..." });
+					// progressBars.release.start(newReleases.length, 0, { message: "Starting downloads..." });
 				}
 			}
 
