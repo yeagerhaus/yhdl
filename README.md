@@ -239,6 +239,28 @@ bun run cache:clear --all
 
 **Note:** Cache clearing preserves your ignored artists list. Only check history and library cache are cleared.
 
+### Tag Existing Files
+
+Add RELEASETYPE metadata tags to existing FLAC/MP3 files in your library:
+
+```bash
+# Tag all files in default music directory
+bun run tag:existing
+
+# Tag files in a specific directory
+bun run tag:existing --path "C:\Users\YourName\Music"
+
+# Preview what would be tagged (dry run)
+bun run tag:existing --dry-run
+```
+
+| Option | Description |
+|--------|-------------|
+| `-p, --path <path>` | Music root path to tag (default: current directory) |
+| `--dry-run` | Preview what would be tagged without making changes |
+
+This command scans your music library and adds `RELEASETYPE` tags (album, ep, or single) to files based on the number of tracks in each release directory.
+
 ## Programmatic API
 
 yhdl can be used as a library in your own projects:

@@ -10,7 +10,7 @@ const program = new Command();
 program
 	.name("yhdl")
 	.description("Download artist discographies from Deezer with intelligent folder management")
-	.version("1.0.0");
+	.version("1.5.0");
 
 // Download command (existing functionality)
 const downloadCmd = program
