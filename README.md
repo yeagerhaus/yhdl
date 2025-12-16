@@ -5,11 +5,14 @@ Download artist discographies with smart folder organization.
 ## Features
 
 - **One command** - Download an artist's complete discography
-- **Smart organization** - `Artist / Album Name - Type` folder structure
-- **Auto-detection** - Labels releases as Album, EP, or Single
+- **Smart organization** - `Artist / Album Name` folder structure
+- **Auto-detection** - Identifies releases as Album, EP, or Single (for internal use)
 - **Deduplication** - Skips already-downloaded albums
 - **FLAC support** - Downloads highest available quality
 - **Retry logic** - Handles network issues gracefully
+- **Scheduled sync** - Automatically check your entire library for new releases
+- **Smart caching** - Fast subsequent runs using cached library scan
+- **Ignore list** - Skip artists you don't want to sync
 
 ## Quick Start
 
@@ -68,14 +71,57 @@ MUSIC_ROOT_PATH=C:\Users\YourName\Music
 ```
 Music/
 ├── Tame Impala/
-│   ├── Currents - Album/
+│   ├── Currents/
 │   │   ├── 01 - Let It Happen.flac
 │   │   └── ...
-│   ├── Lonerism - Album/
-│   └── The Less I Know The Better - Single/
+│   ├── Lonerism/
+│   └── The Less I Know The Better/
 └── Various Artists/
-    └── Compilation - Album/
+    └── Compilation/
 ```
+
+## Scheduled Sync
+
+Automatically sync your entire music library to find and download missing releases.
+
+```bash
+# Run scheduled sync manually
+bun run sync:scheduled
+
+# With options
+bun run sync:scheduled --full --bitrate 320
+```
+
+**What it does:**
+- Scans your music folder for all artists (shows progress bar)
+- Checks each artist on Deezer for new releases
+- Downloads any missing releases automatically
+- Saves logs to `logs/scheduled-sync-YYYYMMDD.log`
+
+**Smart caching:** The first run scans your library. Future runs use a cache (valid 24 hours) to skip scanning, making it much faster.
+
+**Skip recently checked artists:** Artists checked in the last 24 hours are automatically skipped (unless you use `--full`).
+
+### Ignoring Artists
+
+Skip artists you don't want to sync:
+
+```bash
+# Add artists to ignore list
+bun run ignore:add "Artist Name"
+bun run ignore:add "Artist 1" "Artist 2" "Artist 3"
+
+# Remove artists from ignore list
+bun run ignore:remove "Artist Name"
+
+# List ignored artists
+bun run ignore:list
+
+# Clear cache (for testing)
+bun run ignore:clear --all
+```
+
+Ignored artists are never checked during sync. Your ignore list is saved and persists across runs.
 
 ## Development
 

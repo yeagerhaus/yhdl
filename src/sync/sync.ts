@@ -7,7 +7,8 @@ import {
 	getExistingReleases,
 	type ResolvedRelease,
 } from "../folder-resolver.js";
-import { scanLibrary, normalizeArtistName, type LibraryArtist } from "../library/scanner.js";
+import { scanLibrary, normalizeArtistName } from "../library/scanner.js";
+import type { LibraryArtist, ScanProgress } from "../library/types.js";
 import {
 	loadState,
 	saveState,
@@ -15,8 +16,13 @@ import {
 	updateArtistLastRelease,
 	shouldSkipArtist,
 	updateLastFullSync,
-	type SyncState,
+	cacheLibraryScan,
+	getCachedLibraryScan,
+	cacheArtistReleases,
+	getCachedArtistReleases,
+	isArtistIgnored,
 } from "./state.js";
+import type { SyncState } from "./types.js";
 import {
 	logSyncStart,
 	logArtistCheck,
@@ -27,6 +33,9 @@ import {
 	type SyncSummary,
 } from "./logger.js";
 import type { Config } from "../config.js";
+import cliProgress from "cli-progress";
+import pc from "picocolors";
+import path from "path";
 
 export interface SyncOptions {
 	musicRootPath: string;
@@ -63,7 +72,8 @@ async function checkArtistForNewReleases(
 	dz: Deezer,
 	artistName: string,
 	artistId: number,
-	musicRootPath: string
+	musicRootPath: string,
+	cachedExistingReleases?: string[] | null
 ): Promise<{ newReleases: ResolvedRelease[]; error?: string }> {
 	try {
 		// Get discography from Deezer
@@ -75,7 +85,8 @@ async function checkArtistForNewReleases(
 		}
 
 		// Resolve releases and check which ones exist
-		const resolved = resolveArtistReleases(musicRootPath, artistName, artistId, allReleases);
+		// If we have cached releases, we can optimize the check
+		const resolved = resolveArtistReleases(musicRootPath, artistName, artistId, allReleases, cachedExistingReleases);
 		const newReleases = resolved.filter((r) => !r.exists);
 
 		return { newReleases };
@@ -218,23 +229,106 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 			},
 		];
 	} else {
-		// Scan entire library
-		libraryArtists = await scanLibrary(musicRootPath, {
-			includeMetadata: true,
-			includeFolders: true,
-		});
+		// Check if we have a cached library scan (valid for 24 hours)
+		const cachedScan = getCachedLibraryScan(state, musicRootPath, 24);
+		
+		if (cachedScan && !fullSync) {
+			// Use cached library scan - much faster!
+			console.log(`  Using cached library scan (from ${new Date(cachedScan.lastScanned).toLocaleString()})`);
+			libraryArtists = cachedScan.artists.map((a) => ({
+				name: a.name,
+				path: a.path,
+				source: "folder" as const,
+			}));
+			console.log();
+			console.log(`  Found ${libraryArtists.length} artist(s) in library (cached)`);
+			console.log();
+		} else {
+			// Scan entire library with progress bar
+			console.log("  Scanning library for artists...");
+			if (cachedScan) {
+				console.log("  (Cache expired or full sync requested - rescanning)");
+			}
+			console.log();
+
+			// Create progress bar for scanning
+			const scanProgressBar = new cliProgress.SingleBar({
+				format: pc.dim("  │ ") + pc.cyan("{bar}") + pc.dim(" │ ") + pc.white("{percentage}%") + pc.dim(" │ ") + pc.yellow("{value}") + pc.dim(" artists found") + pc.dim(" │ ") + pc.dim("{message}"),
+				barCompleteChar: "█",
+				barIncompleteChar: "░",
+				hideCursor: true,
+				clearOnComplete: false,
+				barsize: 30,
+			});
+
+			let lastProgress: ScanProgress = {
+				artistsFound: 0,
+				directoriesScanned: 0,
+				filesProcessed: 0,
+			};
+
+			// Start progress bar (we'll update it as we go)
+			scanProgressBar.start(100, 0, { message: "Starting scan..." });
+
+			libraryArtists = await scanLibrary(musicRootPath, {
+				includeMetadata: false, // Skip metadata - folder-based is much faster and sufficient
+				includeFolders: true,
+				onProgress: (progress: ScanProgress) => {
+					lastProgress = progress;
+					// Simple progress: show artists found, percentage based on directories scanned
+					// Since we're only doing folder scanning, this is fast and we can estimate progress
+					const percentage = Math.min(95, Math.round((progress.directoriesScanned / Math.max(progress.directoriesScanned, 1)) * 90));
+
+					const message = progress.currentPath
+						? path.basename(progress.currentPath).slice(0, 30)
+						: "Scanning folders...";
+
+					scanProgressBar.update(percentage, {
+						value: progress.artistsFound,
+						message: message,
+					});
+				},
+			});
+
+			// Complete the progress bar
+			scanProgressBar.update(100, {
+				value: libraryArtists.length,
+				message: "Complete",
+			});
+			scanProgressBar.stop();
+
+			// Cache the library scan results
+			cacheLibraryScan(
+				state,
+				musicRootPath,
+				libraryArtists.map((a) => ({ name: a.name, path: a.path }))
+			);
+
+			console.log(`  Found ${libraryArtists.length} artist(s) in library`);
+			console.log();
+		}
 	}
 
 	const totalArtists = libraryArtists.length;
+
+	// Filter out ignored artists
+	const ignoredCount = libraryArtists.filter((a) => isArtistIgnored(state, a.name)).length;
+	const artistsToProcess = libraryArtists.filter((a) => !isArtistIgnored(state, a.name));
+	const ignoredArtistsCount = totalArtists - artistsToProcess.length;
 	let checkedArtists = 0;
 	let skippedArtists = 0;
 	let newReleasesCount = 0;
 	const allDownloadResults: DownloadResult[] = [];
 	const errors: Array<{ artist: string; error: string }> = [];
+	
+	if (ignoredCount > 0) {
+		console.log(`  Skipping ${ignoredCount} ignored artist(s)`);
+		console.log();
+	}
 
 	// Process artists in batches
 	const artistResults = await processArtistsBatch(
-		libraryArtists,
+		artistsToProcess,
 		concurrency,
 		async (libraryArtist) => {
 			const normalizedName = normalizeArtistName(libraryArtist.name);
@@ -260,13 +354,22 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 				return;
 			}
 
-			// Check for new releases
+			// Check for new releases (use cached existing releases if available)
+			const cachedReleases = getCachedArtistReleases(state, artistId);
 			const { newReleases, error } = await checkArtistForNewReleases(
 				dz,
 				libraryArtist.name,
 				artistId,
-				musicRootPath
+				musicRootPath,
+				cachedReleases
 			);
+			
+			// Cache the existing releases for this artist (if we got them fresh)
+			if (!cachedReleases && !error) {
+				const artistPath = findOrCreateArtistFolder(musicRootPath, libraryArtist.name);
+				const existingFolders = getExistingReleases(artistPath);
+				cacheArtistReleases(state, artistId, existingFolders);
+			}
 
 			if (error) {
 				errors.push({ artist: libraryArtist.name, error });
@@ -347,7 +450,7 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 	const summary: SyncSummary = {
 		totalArtists,
 		checkedArtists,
-		skippedArtists,
+		skippedArtists: skippedArtists + ignoredArtistsCount,
 		newReleases: newReleasesCount,
 		downloadedTracks: successfulDownloads,
 		failedTracks: failedDownloads,

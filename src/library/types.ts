@@ -5,9 +5,20 @@ export interface LibraryArtist {
 	fileCount?: number;
 }
 
+export interface ScanProgress {
+	artistsFound: number;
+	directoriesScanned: number;
+	totalDirectories?: number;
+	filesProcessed: number;
+	currentPath?: string;
+}
+
+export type ScanProgressCallback = (progress: ScanProgress) => void;
+
 export interface ScanOptions {
 	includeMetadata?: boolean;
 	includeFolders?: boolean;
 	maxDepth?: number;
+	onProgress?: ScanProgressCallback;
 }
 

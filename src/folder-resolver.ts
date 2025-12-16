@@ -56,13 +56,12 @@ export function determineReleaseType(album: DiscographyAlbum): ReleaseType {
 }
 
 /**
- * Build the release folder path with type suffix
- * Format: "Album Name - Type"
+ * Build the release folder path
+ * Format: "Album Name"
  */
 export function resolveReleaseFolder(artistPath: string, album: DiscographyAlbum): string {
-	const releaseType = determineReleaseType(album);
 	const sanitizedTitle = sanitizeFolderName(album.title);
-	const folderName = `${sanitizedTitle} - ${releaseType}`;
+	const folderName = sanitizedTitle;
 	return path.join(artistPath, folderName);
 }
 
@@ -104,15 +103,22 @@ export function isVariousArtists(album: DiscographyAlbum, artistName: string): b
 
 /**
  * Resolve all releases for an artist, determining which need to be downloaded
+ * @param cachedExistingReleases - Optional cached list of existing release folder names (without path)
  */
 export function resolveArtistReleases(
 	rootPath: string,
 	artistName: string,
 	artistId: number,
-	discography: DiscographyAlbum[]
+	discography: DiscographyAlbum[],
+	cachedExistingReleases?: string[] | null
 ): ResolvedRelease[] {
 	const resolved: ResolvedRelease[] = [];
 	const artistPath = findOrCreateArtistFolder(rootPath, artistName);
+
+	// Normalize cached releases for faster lookup
+	const cachedSet = cachedExistingReleases
+		? new Set(cachedExistingReleases.map((r) => r.toLowerCase().trim()))
+		: null;
 
 	for (const album of discography) {
 		// Handle Various Artists albums separately
@@ -125,7 +131,19 @@ export function resolveArtistReleases(
 		}
 
 		const folderPath = resolveReleaseFolder(targetArtistPath, album);
-		const exists = isAlreadyDownloaded(folderPath);
+		const folderName = path.basename(folderPath);
+		
+		// Check cache first (faster), then fall back to filesystem check
+		let exists = false;
+		if (cachedSet && targetArtistPath === artistPath) {
+			// Only use cache if we're checking the same artist path
+			exists = cachedSet.has(folderName.toLowerCase().trim());
+		}
+		
+		if (!exists) {
+			// Fall back to filesystem check
+			exists = isAlreadyDownloaded(folderPath);
+		}
 
 		resolved.push({
 			album,

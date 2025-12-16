@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
-import type { SyncState, ArtistState } from "./types.js";
+import type { SyncState, ArtistState, LibraryCache } from "./types.js";
+import { normalizeArtistName } from "../library/scanner.js";
 
 const DEFAULT_STATE: SyncState = {
 	artists: {},
@@ -134,5 +135,137 @@ export function getAllArtistIds(state: SyncState): number[] {
  */
 export function updateLastFullSync(state: SyncState, timestamp: Date = new Date()): void {
 	state.lastFullSync = timestamp.toISOString();
+}
+
+/**
+ * Cache library scan results
+ */
+export function cacheLibraryScan(
+	state: SyncState,
+	musicRootPath: string,
+	artists: Array<{ name: string; path: string }>
+): void {
+	state.libraryCache = {
+		artists,
+		lastScanned: new Date().toISOString(),
+		musicRootPath,
+	};
+}
+
+/**
+ * Get cached library scan if still valid
+ * Returns null if cache is invalid or doesn't exist
+ */
+export function getCachedLibraryScan(
+	state: SyncState,
+	musicRootPath: string,
+	maxAgeHours: number = 24
+): LibraryCache | null {
+	const cache = state.libraryCache;
+	if (!cache) {
+		return null;
+	}
+
+	// Check if cache is for the same music root path
+	if (cache.musicRootPath !== musicRootPath) {
+		return null;
+	}
+
+	// Check if cache is still fresh
+	try {
+		const lastScanned = new Date(cache.lastScanned);
+		const hoursSinceScan = (Date.now() - lastScanned.getTime()) / (1000 * 60 * 60);
+		
+		if (hoursSinceScan > maxAgeHours) {
+			return null; // Cache expired
+		}
+
+		return cache;
+	} catch {
+		return null; // Invalid date
+	}
+}
+
+/**
+ * Cache existing releases for an artist
+ */
+export function cacheArtistReleases(
+	state: SyncState,
+	artistId: number,
+	releaseFolderNames: string[]
+): void {
+	if (!state.artists[artistId]) {
+		state.artists[artistId] = {
+			name: "",
+			lastChecked: new Date().toISOString(),
+			deezerId: artistId,
+		};
+	}
+	state.artists[artistId].existingReleases = releaseFolderNames;
+}
+
+/**
+ * Get cached existing releases for an artist
+ */
+export function getCachedArtistReleases(
+	state: SyncState,
+	artistId: number
+): string[] | null {
+	const artist = state.artists[artistId];
+	return artist?.existingReleases || null;
+}
+
+/**
+ * Check if an artist is in the ignore list
+ */
+export function isArtistIgnored(state: SyncState, artistName: string): boolean {
+	if (!state.ignoredArtists || state.ignoredArtists.length === 0) {
+		return false;
+	}
+
+	const normalizedName = normalizeArtistName(artistName);
+	return state.ignoredArtists.some(
+		(ignored) => normalizeArtistName(ignored) === normalizedName
+	);
+}
+
+/**
+ * Add an artist to the ignore list
+ */
+export function addIgnoredArtist(state: SyncState, artistName: string): void {
+	if (!state.ignoredArtists) {
+		state.ignoredArtists = [];
+	}
+
+	const normalizedName = normalizeArtistName(artistName);
+	
+	// Check if already ignored
+	if (state.ignoredArtists.some((ignored) => normalizeArtistName(ignored) === normalizedName)) {
+		return; // Already ignored
+	}
+
+	// Add to ignore list (store original name for readability)
+	state.ignoredArtists.push(artistName);
+}
+
+/**
+ * Remove an artist from the ignore list
+ */
+export function removeIgnoredArtist(state: SyncState, artistName: string): void {
+	if (!state.ignoredArtists || state.ignoredArtists.length === 0) {
+		return;
+	}
+
+	const normalizedName = normalizeArtistName(artistName);
+	state.ignoredArtists = state.ignoredArtists.filter(
+		(ignored) => normalizeArtistName(ignored) !== normalizedName
+	);
+}
+
+/**
+ * Get all ignored artists
+ */
+export function getIgnoredArtists(state: SyncState): string[] {
+	return state.ignoredArtists || [];
 }
 

@@ -98,7 +98,7 @@ describe("Folder Resolver", () => {
 		expect(determineReleaseType(album)).toBe("Album");
 	});
 
-	test("resolveReleaseFolder creates correct folder name with type", () => {
+	test("resolveReleaseFolder creates correct folder name", () => {
 		const artistPath = path.join(testRoot, "Artist");
 		const album: DiscographyAlbum = {
 			id: "1",
@@ -118,7 +118,7 @@ describe("Folder Resolver", () => {
 
 		const releasePath = resolveReleaseFolder(artistPath, album);
 		expect(releasePath).toContain("My Album");
-		expect(releasePath).toContain("Album");
+		expect(path.basename(releasePath)).toBe("My Album");
 	});
 
 	test("isAlreadyDownloaded returns false for non-existent folder", () => {
