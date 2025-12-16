@@ -140,6 +140,7 @@ async function downloadRelease(
 	const downloader = new Downloader(dz, {
 		bitrate,
 		downloadPath: release.folderPath,
+		releaseType: release.releaseType,
 		onTrackStart: (trackInfo, index, total) => {
 			if (onTrackStart) {
 				onTrackStart({ title: trackInfo.title, id: trackInfo.id }, index, total);

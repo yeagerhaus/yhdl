@@ -27,6 +27,7 @@ const FORMAT_EXTENSIONS: Record<number, string> = {
 export interface DownloaderOptions {
 	bitrate: number;
 	downloadPath: string;
+	releaseType?: "Album" | "EP" | "Single";
 	onProgress?: ProgressCallback;
 	onTrackStart?: (track: TrackDownloadInfo, index: number, total: number) => void;
 	onTrackComplete?: (result: DownloadResult, index: number, total: number) => void;
@@ -74,6 +75,10 @@ export class Downloader {
 
 	async downloadTrack(gwTrack: GWTrack, albumTitle?: string): Promise<DownloadResult> {
 		const trackInfo = gwTrackToDownloadInfo(gwTrack, albumTitle);
+		// Add release type if available
+		if (this.options.releaseType) {
+			trackInfo.releaseType = this.options.releaseType;
+		}
 
 		try {
 			// Get track with full info

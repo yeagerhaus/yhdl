@@ -12,6 +12,7 @@ export interface TagOptions {
 	year?: boolean;
 	cover?: boolean;
 	isrc?: boolean;
+	releaseType?: boolean;
 }
 
 const DEFAULT_TAG_OPTIONS: TagOptions = {
@@ -22,6 +23,7 @@ const DEFAULT_TAG_OPTIONS: TagOptions = {
 	year: true,
 	cover: true,
 	isrc: true,
+	releaseType: true,
 };
 
 export async function tagTrack(
@@ -70,6 +72,24 @@ async function tagMP3(
 
 	if (options.isrc && track.isrc) {
 		tags.ISRC = track.isrc;
+	}
+
+	if (options.releaseType && track.releaseType) {
+		// Convert to lowercase for Plex compatibility (single, ep, album)
+		const releaseType = track.releaseType.toLowerCase();
+		// Use userDefinedText for custom tags (TXXX frame in ID3v2)
+		// Add both RELEASETYPE and ALBUMTYPE for maximum compatibility
+		if (!tags.userDefinedText) {
+			tags.userDefinedText = [];
+		}
+		tags.userDefinedText.push({
+			description: "RELEASETYPE",
+			value: releaseType,
+		});
+		tags.userDefinedText.push({
+			description: "ALBUMTYPE",
+			value: releaseType,
+		});
 	}
 
 	if (options.cover && coverPath && fs.existsSync(coverPath)) {
@@ -129,6 +149,14 @@ async function tagFLAC(
 			
 			if (options.isrc && track.isrc) {
 				comments.push(`ISRC=${track.isrc}`);
+			}
+			
+			if (options.releaseType && track.releaseType) {
+				// Convert to lowercase for Plex compatibility (single, ep, album)
+				const releaseType = track.releaseType.toLowerCase();
+				// Add both RELEASETYPE and ALBUMTYPE for maximum compatibility
+				comments.push(`RELEASETYPE=${releaseType}`);
+				comments.push(`ALBUMTYPE=${releaseType}`);
 			}
 			
 			// Read cover art if available

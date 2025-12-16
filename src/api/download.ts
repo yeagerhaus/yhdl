@@ -112,6 +112,7 @@ export async function downloadArtist(options: DownloadArtistOptions): Promise<Do
 			const downloader = new Downloader(dz, {
 				bitrate: finalBitrate,
 				downloadPath: release.folderPath,
+				releaseType: release.releaseType,
 			});
 
 			const results = await downloader.downloadAlbum(release.album.id, release.album.title);

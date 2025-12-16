@@ -19,6 +19,7 @@ export interface TrackDownloadInfo {
 	bpm?: number;
 	gain?: number;
 	contributors?: string[];
+	releaseType?: "Album" | "EP" | "Single";
 }
 
 export interface AlbumDownloadInfo {
