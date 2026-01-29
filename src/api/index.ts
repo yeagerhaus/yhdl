@@ -10,8 +10,8 @@ export { syncLibrary, checkArtist } from "../sync/sync.js";
 export type { SyncOptions, SyncResult, NewRelease } from "../sync/sync.js";
 
 // Download operations
-export { downloadArtist } from "./download.js";
-export type { DownloadArtistOptions, DownloadArtistResult } from "./download.js";
+export { downloadArtist, downloadTrack } from "./download.js";
+export type { DownloadArtistOptions, DownloadArtistResult, DownloadTrackOptions, DownloadTrackResult } from "./download.js";
 export { Downloader } from "../downloader/downloader.js";
 export type { DownloadResult, DownloaderOptions } from "../downloader/downloader.js";
 export type {

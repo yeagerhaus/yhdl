@@ -7,6 +7,7 @@ import { tagTrack } from "../downloader/tagger.js";
 import type { TrackDownloadInfo } from "../downloader/types.js";
 import { determineReleaseType } from "../folder-resolver.js";
 import type { DiscographyAlbum } from "../deezer/types.js";
+import { getConfig } from "../config.js";
 import pc from "picocolors";
 
 const program = new Command();
@@ -14,18 +15,30 @@ const program = new Command();
 program
 	.name("tag-existing")
 	.description("Add RELEASETYPE metadata tags to existing FLAC/MP3 files")
-	.option("-p, --path <path>", "Music root path (required)", process.cwd())
+	.argument("[artist]", "Artist name (optional - tags all artists if not specified)")
+	.option("-p, --path <path>", "Override music root path (default: from .env)")
 	.option("--dry-run", "Preview what would be tagged without making changes")
-	.action(async (options) => {
-		const musicRootPath = options.path || process.cwd();
+	.action(async (artistName, options) => {
+		const config = getConfig();
+		const musicRootPath = options.path 
+			? options.path 
+			: artistName 
+				? path.join(config.musicRootPath, artistName)
+				: config.musicRootPath;
 		const dryRun = options.dryRun || false;
 
 		if (!fs.existsSync(musicRootPath)) {
 			console.error(pc.red(`Error: Path does not exist: ${musicRootPath}`));
+			if (artistName) {
+				console.error(pc.dim(`  Artist folder not found. Checked: ${musicRootPath}`));
+			}
 			process.exit(1);
 		}
 
 		console.log(pc.cyan("Tagging existing files with RELEASETYPE metadata..."));
+		if (artistName) {
+			console.log(pc.dim(`  Artist: ${artistName}`));
+		}
 		console.log(pc.dim(`  Path: ${musicRootPath}`));
 		if (dryRun) {
 			console.log(pc.yellow("  DRY RUN MODE - No changes will be made"));
@@ -97,19 +110,23 @@ program
 				const relativePath = path.relative(musicRootPath, albumDir);
 				const parts = relativePath.split(path.sep).filter((p) => p.length > 0);
 				
-				// If we're at the root or only one level deep, use the directory name as album
-				// and try to get artist from parent, otherwise use "Unknown Artist"
-				let artistName: string;
+				// If artist name was provided, use it; otherwise extract from path
+				let extractedArtistName: string;
 				let albumName: string;
 				
-				if (parts.length >= 2) {
+				if (artistName) {
+					// Artist name was provided, so musicRootPath is already the artist folder
+					// Album is the directory name
+					extractedArtistName = artistName;
+					albumName = parts.length > 0 ? parts[parts.length - 1] : path.basename(albumDir);
+				} else if (parts.length >= 2) {
 					// Standard structure: Artist/Album
-					artistName = parts[0];
+					extractedArtistName = parts[0];
 					albumName = parts[parts.length - 1];
 				} else if (parts.length === 1) {
 					// Only album level - try to get artist from parent directory
 					const parentDir = path.dirname(albumDir);
-					artistName = path.basename(parentDir) || "Unknown Artist";
+					extractedArtistName = path.basename(parentDir) || "Unknown Artist";
 					albumName = parts[0];
 				} else {
 					// At root - skip
@@ -131,7 +148,7 @@ program
 				const trackInfo: TrackDownloadInfo = {
 					id: 0,
 					title: trackTitle,
-					artist: artistName,
+					artist: extractedArtistName,
 					album: albumName,
 					trackNumber,
 					discNumber: 1,

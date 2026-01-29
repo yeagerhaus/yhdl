@@ -59,6 +59,28 @@ bun run dev d "Tame Impala"
 | `-b, --bitrate` | `flac`, `320`, or `128` (default: flac) |
 | `--dry-run` | Preview what would be downloaded without actually downloading |
 
+### Download a Specific Song
+
+Download a single track/song:
+
+```bash
+# Search for a track by name
+bun run dev track "Let It Happen"
+bun run dev track "Let It Happen" "Tame Impala"
+
+# Using the alias
+bun run dev t "Let It Happen" "Tame Impala"
+```
+
+| Argument | Description |
+|----------|-------------|
+| `<track>` | Track name to search and download (required) |
+| `[artist]` | Artist name (optional, helps narrow search results) |
+
+**Note:** Due to a limitation in commander.js v12 with subcommand options, the artist name must be provided as a positional argument rather than using `-a` or `--artist`. Other options like `--bitrate` and `--dry-run` are not currently supported for the track command, but the default bitrate (FLAC) will be used.
+
+The track will be downloaded to the appropriate artist/album folder structure, just like when downloading a full discography.
+
 ### Sync Library
 
 Sync your entire music library to find and download new releases:
@@ -108,6 +130,8 @@ Then edit `.env` with your settings:
 | `ERROR_LOG_PATH` | Path to error log file | `.yhdl/sync-errors.json` |
 | `SYNC_CONCURRENCY` | Number of parallel artist checks during sync | `5` |
 | `SYNC_CHECK_INTERVAL` | Hours between artist checks (for skipping) | `24` |
+| `PLEX_WEBHOOK_URL` | Plex webhook URL to trigger library scan after downloads | Optional |
+| `PLEX_WEBHOOK_TOKEN` | Plex API token (if required by webhook) | Optional |
 
 Example `.env` file:
 
@@ -116,6 +140,8 @@ DEEZER_ARL=your_arl_token_here
 MUSIC_ROOT_PATH=C:\Users\YourName\Music
 SYNC_CONCURRENCY=5
 SYNC_CHECK_INTERVAL=24
+PLEX_WEBHOOK_URL=http://your-plex-server:32400/library/sections/1/refresh
+PLEX_WEBHOOK_TOKEN=your_plex_token_here
 ```
 
 ### Getting Your Deezer ARL Token
@@ -186,11 +212,22 @@ bun run sync:scheduled --log logs/my-sync.log
 - Scans your music folder for all artists
 - Checks each artist on Deezer for new releases
 - Downloads any missing releases automatically
+- Shows detailed list of downloaded releases in output
+- Generates a summary file (`.yhdl/sync-summary.json`) with download details
+- Triggers Plex library scan if `PLEX_WEBHOOK_URL` is configured
 - Logs all output to a file (default: `logs/scheduled-sync-YYYYMMDD.log`)
 
 **Smart caching:** The first run scans your library. Future runs use a cache (valid 24 hours) to skip scanning, making it much faster.
 
 **Skip recently checked artists:** Artists checked in the last 24 hours are automatically skipped (unless you use `--full`).
+
+**Summary file:** After each sync, a summary file is generated at `.yhdl/sync-summary.json` containing:
+- Timestamp of the sync
+- Summary statistics
+- Detailed list of all downloaded releases (artist, album, release date, track count)
+- List of any errors encountered
+
+This makes it easy to see what was downloaded and integrate with other tools (like Plex notification systems).
 
 ### Windows Task Scheduler
 
@@ -245,24 +282,59 @@ bun run cache:clear --all
 
 **Note:** Cache clearing preserves your ignored artists list. Only check history and library cache are cleared.
 
+### Status & Errors
+
+Check sync status and view recent errors:
+
+```bash
+# Show sync status (last run, artists checked, errors, etc.)
+bun run status
+bun run dev status
+bun run dev st  # Using alias
+
+# View recent errors
+bun run errors
+bun run dev errors
+bun run dev e  # Using alias
+
+# View errors from last 48 hours (limit to 10)
+bun run errors --since 48 --limit 10
+
+# Output as JSON
+bun run status --json
+bun run errors --json
+```
+
+The status command shows:
+- Configuration status (ARL token validity, music root path)
+- Sync statistics (total artists, last full sync, artists checked recently)
+- Library cache status
+- Error counts (total and recent)
+
+The errors command shows recent failures with details about what went wrong.
+
 ### Tag Existing Files
 
 Add RELEASETYPE metadata tags to existing FLAC/MP3 files in your library:
 
 ```bash
-# Tag all files in default music directory
+# Tag all files in your music library (uses MUSIC_ROOT_PATH from .env)
 bun run tag:existing
 
-# Tag files in a specific directory
-bun run tag:existing --path "C:\Users\YourName\Music"
+# Tag files for a specific artist
+bun run tag:existing "Artist Name"
 
 # Preview what would be tagged (dry run)
-bun run tag:existing --dry-run
+bun run tag:existing "Artist Name" --dry-run
+
+# Override music root path (instead of using .env)
+bun run tag:existing --path "C:\Users\YourName\Music"
 ```
 
 | Option | Description |
 |--------|-------------|
-| `-p, --path <path>` | Music root path to tag (default: current working directory) |
+| `[artist]` | Artist name (optional - tags all artists if not specified) |
+| `-p, --path <path>` | Override music root path (default: MUSIC_ROOT_PATH from .env) |
 | `--dry-run` | Preview what would be tagged without making changes |
 
 This command scans your music library and adds `RELEASETYPE` tags (album, ep, or single) to files based on the number of tracks in each release directory.
@@ -272,7 +344,7 @@ This command scans your music library and adds `RELEASETYPE` tags (album, ep, or
 yhdl can be used as a library in your own projects:
 
 ```typescript
-import { downloadArtist, syncLibrary } from "yhdl";
+import { downloadArtist, downloadTrack, syncLibrary } from "yhdl";
 
 // Download an artist's discography
 const result = await downloadArtist({
@@ -283,6 +355,17 @@ const result = await downloadArtist({
 });
 
 console.log(`Downloaded ${result.downloadedTracks} tracks`);
+
+// Download a specific track
+const trackResult = await downloadTrack({
+  trackQuery: "Let It Happen",
+  artistName: "Tame Impala", // Optional, helps narrow search
+  bitrate: "flac",
+  musicRootPath: "/path/to/music",
+  deezerArl: "your_arl_token",
+});
+
+console.log(`Downloaded: ${trackResult.track.title} by ${trackResult.track.artist.name}`);
 
 // Sync entire library
 const syncResult = await syncLibrary({

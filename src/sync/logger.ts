@@ -126,7 +126,10 @@ export function logDownloadResult(result: DownloadResult): void {
 /**
  * Log sync complete with summary
  */
-export function logSyncComplete(summary: SyncSummary): void {
+export function logSyncComplete(
+	summary: SyncSummary,
+	downloadedReleases?: Array<{ artist: string; release: string; releaseDate?: string; tracks: number; releaseType: string }>
+): void {
 	const durationSeconds = (summary.duration / 1000).toFixed(1);
 	const durationMinutes = (summary.duration / 60000).toFixed(1);
 
@@ -143,6 +146,18 @@ export function logSyncComplete(summary: SyncSummary): void {
 	}
 	console.log(`  Duration: ${durationSeconds}s (${durationMinutes}min)`);
 	console.log("═══════════════════════════════════════════════════════════");
+	
+	// Show downloaded releases if any
+	if (downloadedReleases && downloadedReleases.length > 0) {
+		console.log();
+		console.log("  📥 Downloaded Releases:");
+		for (const release of downloadedReleases) {
+			const typeLabel = release.releaseType === "album" ? "Album" : release.releaseType === "ep" ? "EP" : "Single";
+			const dateLabel = release.releaseDate ? ` (${release.releaseDate})` : "";
+			console.log(`    • ${release.artist} - ${release.release} [${typeLabel}]${dateLabel} (${release.tracks} tracks)`);
+		}
+	}
+	
 	console.log();
 }
 

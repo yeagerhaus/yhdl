@@ -3,6 +3,7 @@
 import { Command } from "commander";
 import * as readline from "node:readline/promises";
 import pc from "picocolors";
+import path from "path";
 import { syncLibrary } from "../sync/sync.js";
 import { loadConfig, loadArl, saveArl, clearArl } from "../config.js";
 import { Deezer, TrackFormats } from "../deezer/index.js";
@@ -123,6 +124,27 @@ export async function syncCommand() {
 		statePath: config.syncStatePath,
 		errorLogPath: config.errorLogPath,
 	});
+
+	// Show summary file location if created
+	if (result.downloadedReleases.length > 0 || result.errors.length > 0) {
+		const summaryPath = path.join(path.dirname(config.syncStatePath || ".yhdl/sync-state.json"), "sync-summary.json");
+		console.log(pc.dim(`  Summary saved to: ${summaryPath}`));
+		console.log();
+	}
+
+	// Trigger Plex webhook if configured and there were downloads
+	if (config.plexWebhookUrl && result.downloadedReleases.length > 0) {
+		const { triggerPlexScan } = await import("../utils/plex.js");
+		console.log(pc.dim("  Triggering Plex library scan..."));
+		const plexSuccess = await triggerPlexScan({
+			url: config.plexWebhookUrl,
+			token: config.plexWebhookToken,
+		});
+		if (plexSuccess) {
+			console.log(pc.green("  ✓ Plex scan triggered"));
+		}
+		console.log();
+	}
 
 	// Exit with appropriate code
 	process.exit(result.summary.failedTracks > 0 ? 1 : 0);

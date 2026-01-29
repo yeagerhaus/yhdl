@@ -127,6 +127,17 @@ async function main() {
 		log(`Duration: ${Math.round(result.summary.duration / 1000)}s`);
 		log("=".repeat(60));
 
+		if (result.downloadedReleases.length > 0) {
+			log("");
+			log("Downloaded Releases:");
+			for (const release of result.downloadedReleases) {
+				const typeLabel = release.releaseType === "album" ? "Album" : release.releaseType === "ep" ? "EP" : "Single";
+				const dateLabel = release.releaseDate ? ` (${release.releaseDate})` : "";
+				log(`  - ${release.artist} - ${release.release} [${typeLabel}]${dateLabel} (${release.tracks} tracks)`);
+			}
+			log("");
+		}
+
 		if (result.errors.length > 0) {
 			log(`Errors encountered: ${result.errors.length}`);
 			for (const error of result.errors) {

@@ -252,7 +252,7 @@ function normalizeForMatching(str: string): string {
 /**
  * Sanitize a string for use as a folder name
  */
-function sanitizeFolderName(name: string): string {
+export function sanitizeFolderName(name: string): string {
 	return name
 		.replace(/[<>:"/\\|?*]/g, "_") // Replace invalid chars
 		.replace(/\s+/g, " ") // Normalize whitespace

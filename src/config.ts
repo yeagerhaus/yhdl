@@ -9,6 +9,8 @@ export interface Config {
 	syncConcurrency?: number;
 	syncCheckInterval?: number; // hours
 	deezerArl?: string;
+	plexWebhookUrl?: string;
+	plexWebhookToken?: string;
 }
 
 const DEFAULT_CONFIG: Config = {
@@ -110,6 +112,8 @@ export function loadConfig(): Config {
 		errorLogPath: process.env.ERROR_LOG_PATH?.trim() || defaultErrorLogPath,
 		syncConcurrency: syncConcurrency || DEFAULT_CONFIG.syncConcurrency,
 		syncCheckInterval: syncCheckInterval || DEFAULT_CONFIG.syncCheckInterval,
+		plexWebhookUrl: process.env.PLEX_WEBHOOK_URL?.trim(),
+		plexWebhookToken: process.env.PLEX_WEBHOOK_TOKEN?.trim(),
 	};
 }
 

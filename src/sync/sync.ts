@@ -32,6 +32,7 @@ import {
 	writeFailureLog,
 	type SyncSummary,
 } from "./logger.js";
+import { generateSummaryFile } from "./summary.js";
 import type { Config } from "../config.js";
 import cliProgress from "cli-progress";
 import pc from "picocolors";
@@ -67,6 +68,7 @@ export interface SyncResult {
 	artistsSkipped: number;
 	newReleases: number;
 	downloadResults: DownloadResult[];
+	downloadedReleases: Array<{ artist: string; artistId: number; release: string; releaseId: number; releaseDate?: string; tracks: number; releaseType: string }>;
 	errors: Array<{ artist: string; error: string }>;
 }
 
@@ -362,6 +364,7 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 	let newReleasesCount = 0;
 	const allDownloadResults: DownloadResult[] = [];
 	const errors: Array<{ artist: string; error: string }> = [];
+	const downloadedReleases: Array<{ artist: string; artistId: number; release: string; releaseId: number; releaseDate?: string; tracks: number; releaseType: string }> = [];
 	
 	if (ignoredCount > 0) {
 		console.log(`  Skipping ${ignoredCount} ignored artist(s)`);
@@ -611,6 +614,20 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 					if (release.album.release_date) {
 						updateArtistLastRelease(state, artistId, release.album.release_date);
 					}
+					
+					// Track successfully downloaded releases
+					const successfulTracks = results.filter((r) => r.success);
+					if (successfulTracks.length > 0) {
+						downloadedReleases.push({
+							artist: libraryArtist.name,
+							artistId,
+							release: release.album.title,
+							releaseId: release.album.id,
+							releaseDate: release.album.release_date,
+							tracks: successfulTracks.length,
+							releaseType: release.releaseType,
+						});
+					}
 				} catch (error) {
 					const errorMessage = error instanceof Error ? error.message : String(error);
 					errors.push({
@@ -655,6 +672,20 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 	// Save state
 	saveState(statePath, state);
 
+	// Generate summary file if there were downloads
+	if (downloadedReleases.length > 0 || errors.length > 0) {
+		const summaryPath = path.join(path.dirname(statePath), "sync-summary.json");
+		generateSummaryFile({
+			summary,
+			artistsChecked: checkedArtists,
+			artistsSkipped: skippedArtists,
+			newReleases: newReleasesCount,
+			downloadResults: allDownloadResults,
+			downloadedReleases,
+			errors,
+		}, summaryPath);
+	}
+
 	// Calculate summary
 	const successfulDownloads = allDownloadResults.filter((r) => r.success).length;
 	const failedDownloads = allDownloadResults.filter((r) => !r.success).length;
@@ -670,7 +701,7 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 		duration,
 	};
 
-	logSyncComplete(summary);
+	logSyncComplete(summary, downloadedReleases);
 
 	return {
 		summary,
@@ -678,6 +709,7 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 		artistsSkipped: skippedArtists,
 		newReleases: newReleasesCount,
 		downloadResults: allDownloadResults,
+		downloadedReleases,
 		errors,
 	};
 }

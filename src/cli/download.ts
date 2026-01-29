@@ -6,11 +6,12 @@ import fs from "fs";
 import pc from "picocolors";
 import ora from "ora";
 import cliProgress from "cli-progress";
-import { Deezer, TrackFormats, type DiscographyAlbum } from "../deezer/index.js";
+import { Deezer, TrackFormats, type DiscographyAlbum, type APITrack } from "../deezer/index.js";
 import { Downloader, type DownloadResult } from "../downloader/index.js";
 import { loadConfig, loadArl, saveArl, clearArl, getEnvPathForDisplay } from "../config.js";
 import { resolveArtistReleases, createReleaseFolders } from "../folder-resolver.js";
 import { parseBitrate } from "../utils.js";
+import { downloadTrack as downloadTrackAPI } from "../api/download.js";
 
 const program = new Command();
 
@@ -362,6 +363,168 @@ export async function downloadArtist(cmd?: Command) {
 	}
 
 	process.exit(failed.length > 0 ? 1 : 0);
+}
+
+export async function downloadTrack(cmd?: Command) {
+	// Use provided command or create/parse our own
+	let command: Command;
+	if (cmd) {
+		command = cmd;
+	} else {
+		// Create a temporary command for backward compatibility
+		command = new Command();
+		command.argument("<track>", "Track name to search and download");
+		command.option("-a, --artist <name>", "Artist name (optional, helps narrow search)");
+		command.option("-b, --bitrate <type>", "Bitrate: flac, 320, 128", "flac");
+		command.option("--dry-run", "Preview what would be downloaded without actually downloading");
+		command.parse(process.argv.slice(2));
+	}
+
+	const trackQuery = command.args[0];
+	const opts = command.opts<{ artist?: string; bitrate: string; dryRun?: boolean }>();
+	const bitrate = parseBitrate(opts.bitrate);
+
+	printHeader();
+
+	// Load config
+	const config = loadConfig();
+	printConfig(config.musicRootPath, getEnvPathForDisplay());
+
+	// Initialize Deezer
+	const dz = new Deezer();
+
+	// Handle login
+	let arl = loadArl();
+	if (!arl) {
+		console.log(pc.yellow("  ⚠ No ARL found. Please enter your Deezer ARL token."));
+		console.log(pc.dim("    (You can find this in your browser cookies at deezer.com)\n"));
+
+		const rl = readline.createInterface({
+			input: process.stdin,
+			output: process.stdout,
+		});
+
+		arl = await rl.question(pc.cyan("  Enter ARL: "));
+		rl.close();
+
+		if (!arl || arl.trim().length === 0) {
+			console.error(pc.red("\n  ✗ No ARL provided. Exiting."));
+			process.exit(1);
+		}
+
+		arl = arl.trim();
+	}
+
+	// Login with retry logic for expired tokens
+	let loggedIn = false;
+	let loginAttempts = 0;
+	const maxLoginAttempts = 2;
+
+	while (!loggedIn && loginAttempts < maxLoginAttempts) {
+		const loginSpinner = ora({
+			text: "Logging in to Deezer...",
+			prefixText: " ",
+			color: "magenta",
+		}).start();
+
+		loggedIn = await dz.loginViaArl(arl);
+
+		if (!loggedIn) {
+			loginSpinner.fail(pc.red("Login failed. Your ARL token may be expired or invalid."));
+
+			// Clear the invalid ARL from .env
+			clearArl();
+
+			// Prompt for new ARL
+			console.log();
+			console.log(pc.yellow("  ⚠ Please enter a new Deezer ARL token."));
+			console.log(pc.dim("    (You can find this in your browser cookies at deezer.com)\n"));
+
+			const rl = readline.createInterface({
+				input: process.stdin,
+				output: process.stdout,
+			});
+
+			arl = await rl.question(pc.cyan("  Enter ARL: "));
+			rl.close();
+
+			if (!arl || arl.trim().length === 0) {
+				console.error(pc.red("\n  ✗ No ARL provided. Exiting."));
+				process.exit(1);
+			}
+
+			arl = arl.trim();
+			loginAttempts++;
+		} else {
+			loginSpinner.succeed(pc.green(`Logged in as ${pc.bold(dz.currentUser?.name || "Unknown")}`));
+			saveArl(arl);
+		}
+	}
+
+	if (!loggedIn) {
+		console.error(pc.red("\n  ✗ Failed to login after multiple attempts. Exiting."));
+		process.exit(1);
+	}
+
+	// Check subscription
+	if (bitrate === TrackFormats.FLAC && !dz.currentUser?.can_stream_lossless) {
+		console.log(pc.yellow("  ⚠ Your account doesn't support FLAC. Falling back to MP3 320."));
+	}
+
+	// ===== PHASE 1: SEARCH =====
+	const searchSpinner = ora({
+		text: `Searching for "${pc.bold(trackQuery)}"${opts.artist ? ` by ${pc.bold(opts.artist)}` : ""}...`,
+		prefixText: " ",
+		color: "cyan",
+	}).start();
+
+	try {
+		const result = await downloadTrackAPI({
+			trackQuery,
+			artistName: opts.artist,
+			musicRootPath: config.musicRootPath,
+			bitrate,
+			dryRun: opts.dryRun,
+			deezerArl: arl,
+		});
+
+		searchSpinner.succeed(
+			`Found ${pc.bold(pc.magenta(result.track.title))} by ${pc.bold(pc.cyan(result.track.artist.name))} ${pc.dim(`(ID: ${result.track.id})`)}`
+		);
+
+		// Show track info
+		console.log();
+		console.log(pc.dim("  ┌─ Track Info ──────────────────────────────────"));
+		console.log(pc.dim("  │ ") + pc.cyan("Title:  ") + pc.white(result.track.title));
+		console.log(pc.dim("  │ ") + pc.cyan("Artist: ") + pc.white(result.track.artist.name));
+		console.log(pc.dim("  │ ") + pc.cyan("Album:  ") + pc.white(result.track.album.title));
+		console.log(pc.dim("  │ ") + pc.cyan("Path:   ") + pc.dim(result.downloadResult.filePath || "N/A"));
+		console.log(pc.dim("  └───────────────────────────────────────────────"));
+
+		if (opts.dryRun) {
+			console.log();
+			console.log(pc.yellow("  🔍 Dry run mode - no files were downloaded."));
+			console.log();
+			process.exit(0);
+		}
+
+		// Show result
+		console.log();
+		if (result.downloadResult.success) {
+			console.log(pc.green(`  ✓ Successfully downloaded: ${pc.bold(result.downloadResult.trackTitle)}`));
+			console.log(pc.dim(`    ${result.downloadResult.filePath}`));
+		} else {
+			console.log(pc.red(`  ✗ Failed to download: ${pc.bold(result.downloadResult.trackTitle)}`));
+			console.log(pc.red(`    Error: ${result.downloadResult.error || "Unknown error"}`));
+			process.exit(1);
+		}
+
+		console.log();
+		process.exit(0);
+	} catch (error) {
+		searchSpinner.fail(pc.red((error as Error).message));
+		process.exit(1);
+	}
 }
 
 
