@@ -42,26 +42,3 @@ export async function triggerPlexScan(
 		return false;
 	}
 }
-
-/**
- * Format Plex webhook payload for new releases
- */
-export function formatPlexWebhookPayload(
-	releases: Array<{
-		artist: string;
-		release: string;
-		releaseDate?: string;
-		tracks: number;
-	}>,
-): object {
-	return {
-		event: "library.new.content",
-		releases: releases.map((r) => ({
-			artist: r.artist,
-			release: r.release,
-			releaseDate: r.releaseDate,
-			tracks: r.tracks,
-		})),
-		timestamp: new Date().toISOString(),
-	};
-}

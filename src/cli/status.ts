@@ -7,15 +7,6 @@ import { Deezer } from "../deezer/index.js";
 import { loadFailureLog } from "../sync/logger.js";
 import { loadState } from "../sync/state.js";
 
-const program = new Command();
-
-program
-	.name("yhdl-status")
-	.description("Show sync status and statistics")
-	.version("1.0.0")
-	.option("--json", "Output as JSON")
-	.parse();
-
 interface StatusInfo {
 	config: {
 		musicRootPath: string;
@@ -258,9 +249,7 @@ function printStatus(status: StatusInfo) {
 	console.log();
 }
 
-export async function statusCommand() {
-	const opts = program.opts<{ json?: boolean }>();
-
+export async function statusCommand(opts: { json?: boolean }) {
 	try {
 		const status = await getStatus();
 
@@ -280,7 +269,15 @@ export async function statusCommand() {
 
 // Run the command if this file is executed directly
 if (import.meta.main) {
-	statusCommand().catch((e) => {
+	const program = new Command();
+	program
+		.name("yhdl-status")
+		.description("Show sync status and statistics")
+		.version("1.10.0")
+		.option("--json", "Output as JSON")
+		.parse();
+
+	statusCommand(program.opts<{ json?: boolean }>()).catch((e) => {
 		console.error(pc.red("Error:"), e.message);
 		process.exit(1);
 	});

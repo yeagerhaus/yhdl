@@ -5,6 +5,7 @@ import pc from "picocolors";
 import { downloadArtist, downloadTrack } from "./cli/download.js";
 import { errorsCommand } from "./cli/errors.js";
 import { statusCommand } from "./cli/status.js";
+import type { SyncCommandOpts } from "./cli/sync.js";
 import { syncCommand } from "./cli/sync.js";
 
 const program = new Command();
@@ -14,10 +15,10 @@ program
 	.description(
 		"Download artist discographies from Deezer with intelligent folder management",
 	)
-	.version("1.9.0");
+	.version("1.10.0");
 
 // Download command (existing functionality)
-const _downloadCmd = program
+program
 	.command("download")
 	.alias("d")
 	.description("Download discography for a specific artist")
@@ -28,18 +29,14 @@ const _downloadCmd = program
 		"Preview what would be downloaded without actually downloading",
 	)
 	.action((artist, opts) => {
-		// Create a temporary command to pass args
-		const tempCmd = new Command();
-		tempCmd.args = [artist];
-		Object.assign(tempCmd.opts(), opts);
-		downloadArtist(tempCmd).catch((e) => {
+		downloadArtist(artist, opts).catch((e) => {
 			console.error(pc.red("Error:"), e.message);
 			process.exit(1);
 		});
 	});
 
 // Track command (download a specific song)
-const trackCmd = program
+program
 	.command("track")
 	.alias("t")
 	.description("Download a specific track/song")
@@ -49,24 +46,13 @@ const trackCmd = program
 	.option(
 		"--dry-run",
 		"Preview what would be downloaded without actually downloading",
-	);
-
-trackCmd.action((track, artist) => {
-	// Access options from the command instance
-	const opts = trackCmd.opts();
-	// Create a temporary command to pass args
-	const tempCmd = new Command();
-	tempCmd.args = [track];
-	if (artist) {
-		Object.assign(tempCmd.opts(), { artist, ...opts });
-	} else {
-		Object.assign(tempCmd.opts(), opts);
-	}
-	downloadTrack(tempCmd).catch((e) => {
-		console.error(pc.red("Error:"), e.message);
-		process.exit(1);
+	)
+	.action((track, artist, opts) => {
+		downloadTrack(track, { artist, ...opts }).catch((e) => {
+			console.error(pc.red("Error:"), e.message);
+			process.exit(1);
+		});
 	});
-});
 
 // Sync command (new functionality)
 program
@@ -86,8 +72,8 @@ program
 		"24",
 	)
 	.option("-b, --bitrate <type>", "Bitrate: flac, 320, 128", "flac")
-	.action(() => {
-		syncCommand().catch((e) => {
+	.action((opts: SyncCommandOpts) => {
+		syncCommand(opts).catch((e) => {
 			console.error(pc.red("Error:"), e.message);
 			process.exit(1);
 		});
@@ -99,8 +85,8 @@ program
 	.alias("st")
 	.description("Show sync status and statistics")
 	.option("--json", "Output as JSON")
-	.action(() => {
-		statusCommand().catch((e) => {
+	.action((opts: { json?: boolean }) => {
+		statusCommand(opts).catch((e) => {
 			console.error(pc.red("Error:"), e.message);
 			process.exit(1);
 		});
@@ -114,8 +100,8 @@ program
 	.option("--limit <n>", "Maximum number of errors to show", "20")
 	.option("--since <hours>", "Only show errors from last N hours", "24")
 	.option("--json", "Output as JSON")
-	.action(() => {
-		errorsCommand().catch((e) => {
+	.action((opts: { limit?: string; since?: string; json?: boolean }) => {
+		errorsCommand(opts).catch((e) => {
 			console.error(pc.red("Error:"), e.message);
 			process.exit(1);
 		});

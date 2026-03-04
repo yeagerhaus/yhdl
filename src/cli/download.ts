@@ -1,19 +1,11 @@
 #!/usr/bin/env node
 
 import fs from "node:fs";
-import * as readline from "node:readline/promises";
 import cliProgress from "cli-progress";
-import { Command } from "commander";
 import ora from "ora";
 import pc from "picocolors";
 import { downloadTrack as downloadTrackAPI } from "../api/download.js";
-import {
-	clearArl,
-	getEnvPathForDisplay,
-	loadArl,
-	loadConfig,
-	saveArl,
-} from "../config.js";
+import { getEnvPathForDisplay, loadConfig } from "../config.js";
 import {
 	Deezer,
 	type DiscographyAlbum,
@@ -25,22 +17,7 @@ import {
 	resolveArtistReleases,
 } from "../folder-resolver.js";
 import { parseBitrate } from "../utils.js";
-
-const program = new Command();
-
-program
-	.name("yhdl")
-	.description(
-		"Download artist discographies from Deezer with intelligent folder management",
-	)
-	.version("1.0.0")
-	.argument("<artist>", "Artist name to search and download")
-	.option("-b, --bitrate <type>", "Bitrate: flac, 320, 128", "flac")
-	.option(
-		"--dry-run",
-		"Preview what would be downloaded without actually downloading",
-	)
-	.parse();
+import { loginWithPrompt } from "./auth.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HELPERS
@@ -119,25 +96,10 @@ function createProgressBar() {
 // MAIN
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export async function downloadArtist(cmd?: Command) {
-	// Use provided command or create/parse our own
-	let command: Command;
-	if (cmd) {
-		command = cmd;
-	} else {
-		// Create a temporary command for backward compatibility
-		command = new Command();
-		command.argument("<artist>", "Artist name to search and download");
-		command.option("-b, --bitrate <type>", "Bitrate: flac, 320, 128", "flac");
-		command.option(
-			"--dry-run",
-			"Preview what would be downloaded without actually downloading",
-		);
-		command.parse(process.argv.slice(2));
-	}
-
-	const artistQuery = command.args[0];
-	const opts = command.opts<{ bitrate: string; dryRun?: boolean }>();
+export async function downloadArtist(
+	artistQuery: string,
+	opts: { bitrate: string; dryRun?: boolean },
+) {
 	const bitrate = parseBitrate(opts.bitrate);
 
 	printHeader();
@@ -146,95 +108,9 @@ export async function downloadArtist(cmd?: Command) {
 	const config = loadConfig();
 	printConfig(config.musicRootPath, getEnvPathForDisplay());
 
-	// Initialize Deezer
+	// Initialize Deezer and login
 	const dz = new Deezer();
-
-	// Handle login
-	let arl = loadArl();
-	if (!arl) {
-		console.log(
-			pc.yellow("  ⚠ No ARL found. Please enter your Deezer ARL token."),
-		);
-		console.log(
-			pc.dim("    (You can find this in your browser cookies at deezer.com)\n"),
-		);
-
-		const rl = readline.createInterface({
-			input: process.stdin,
-			output: process.stdout,
-		});
-
-		arl = await rl.question(pc.cyan("  Enter ARL: "));
-		rl.close();
-
-		if (!arl || arl.trim().length === 0) {
-			console.error(pc.red("\n  ✗ No ARL provided. Exiting."));
-			process.exit(1);
-		}
-
-		arl = arl.trim();
-	}
-
-	// Login with retry logic for expired tokens
-	let loggedIn = false;
-	let loginAttempts = 0;
-	const maxLoginAttempts = 2;
-
-	while (!loggedIn && loginAttempts < maxLoginAttempts) {
-		const loginSpinner = ora({
-			text: "Logging in to Deezer...",
-			prefixText: " ",
-			color: "magenta",
-		}).start();
-
-		loggedIn = await dz.loginViaArl(arl);
-
-		if (!loggedIn) {
-			loginSpinner.fail(
-				pc.red("Login failed. Your ARL token may be expired or invalid."),
-			);
-
-			// Clear the invalid ARL from .env
-			clearArl();
-
-			// Prompt for new ARL
-			console.log();
-			console.log(pc.yellow("  ⚠ Please enter a new Deezer ARL token."));
-			console.log(
-				pc.dim(
-					"    (You can find this in your browser cookies at deezer.com)\n",
-				),
-			);
-
-			const rl = readline.createInterface({
-				input: process.stdin,
-				output: process.stdout,
-			});
-
-			arl = await rl.question(pc.cyan("  Enter ARL: "));
-			rl.close();
-
-			if (!arl || arl.trim().length === 0) {
-				console.error(pc.red("\n  ✗ No ARL provided. Exiting."));
-				process.exit(1);
-			}
-
-			arl = arl.trim();
-			loginAttempts++;
-		} else {
-			loginSpinner.succeed(
-				pc.green(`Logged in as ${pc.bold(dz.currentUser?.name || "Unknown")}`),
-			);
-			saveArl(arl);
-		}
-	}
-
-	if (!loggedIn) {
-		console.error(
-			pc.red("\n  ✗ Failed to login after multiple attempts. Exiting."),
-		);
-		process.exit(1);
-	}
+	await loginWithPrompt(dz);
 
 	// Check subscription
 	if (bitrate === TrackFormats.FLAC && !dz.currentUser?.can_stream_lossless) {
@@ -473,33 +349,10 @@ export async function downloadArtist(cmd?: Command) {
 	process.exit(failed.length > 0 ? 1 : 0);
 }
 
-export async function downloadTrack(cmd?: Command) {
-	// Use provided command or create/parse our own
-	let command: Command;
-	if (cmd) {
-		command = cmd;
-	} else {
-		// Create a temporary command for backward compatibility
-		command = new Command();
-		command.argument("<track>", "Track name to search and download");
-		command.option(
-			"-a, --artist <name>",
-			"Artist name (optional, helps narrow search)",
-		);
-		command.option("-b, --bitrate <type>", "Bitrate: flac, 320, 128", "flac");
-		command.option(
-			"--dry-run",
-			"Preview what would be downloaded without actually downloading",
-		);
-		command.parse(process.argv.slice(2));
-	}
-
-	const trackQuery = command.args[0];
-	const opts = command.opts<{
-		artist?: string;
-		bitrate: string;
-		dryRun?: boolean;
-	}>();
+export async function downloadTrack(
+	trackQuery: string,
+	opts: { artist?: string; bitrate: string; dryRun?: boolean },
+) {
 	const bitrate = parseBitrate(opts.bitrate);
 
 	printHeader();
@@ -508,95 +361,9 @@ export async function downloadTrack(cmd?: Command) {
 	const config = loadConfig();
 	printConfig(config.musicRootPath, getEnvPathForDisplay());
 
-	// Initialize Deezer
+	// Initialize Deezer and login
 	const dz = new Deezer();
-
-	// Handle login
-	let arl = loadArl();
-	if (!arl) {
-		console.log(
-			pc.yellow("  ⚠ No ARL found. Please enter your Deezer ARL token."),
-		);
-		console.log(
-			pc.dim("    (You can find this in your browser cookies at deezer.com)\n"),
-		);
-
-		const rl = readline.createInterface({
-			input: process.stdin,
-			output: process.stdout,
-		});
-
-		arl = await rl.question(pc.cyan("  Enter ARL: "));
-		rl.close();
-
-		if (!arl || arl.trim().length === 0) {
-			console.error(pc.red("\n  ✗ No ARL provided. Exiting."));
-			process.exit(1);
-		}
-
-		arl = arl.trim();
-	}
-
-	// Login with retry logic for expired tokens
-	let loggedIn = false;
-	let loginAttempts = 0;
-	const maxLoginAttempts = 2;
-
-	while (!loggedIn && loginAttempts < maxLoginAttempts) {
-		const loginSpinner = ora({
-			text: "Logging in to Deezer...",
-			prefixText: " ",
-			color: "magenta",
-		}).start();
-
-		loggedIn = await dz.loginViaArl(arl);
-
-		if (!loggedIn) {
-			loginSpinner.fail(
-				pc.red("Login failed. Your ARL token may be expired or invalid."),
-			);
-
-			// Clear the invalid ARL from .env
-			clearArl();
-
-			// Prompt for new ARL
-			console.log();
-			console.log(pc.yellow("  ⚠ Please enter a new Deezer ARL token."));
-			console.log(
-				pc.dim(
-					"    (You can find this in your browser cookies at deezer.com)\n",
-				),
-			);
-
-			const rl = readline.createInterface({
-				input: process.stdin,
-				output: process.stdout,
-			});
-
-			arl = await rl.question(pc.cyan("  Enter ARL: "));
-			rl.close();
-
-			if (!arl || arl.trim().length === 0) {
-				console.error(pc.red("\n  ✗ No ARL provided. Exiting."));
-				process.exit(1);
-			}
-
-			arl = arl.trim();
-			loginAttempts++;
-		} else {
-			loginSpinner.succeed(
-				pc.green(`Logged in as ${pc.bold(dz.currentUser?.name || "Unknown")}`),
-			);
-			saveArl(arl);
-		}
-	}
-
-	if (!loggedIn) {
-		console.error(
-			pc.red("\n  ✗ Failed to login after multiple attempts. Exiting."),
-		);
-		process.exit(1);
-	}
+	const arl = await loginWithPrompt(dz);
 
 	// Check subscription
 	if (bitrate === TrackFormats.FLAC && !dz.currentUser?.can_stream_lossless) {

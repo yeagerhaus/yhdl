@@ -1,414 +1,90 @@
 # yhdl
 
-Download artist discographies from Deezer with smart folder organization and automatic library synchronization.
+Download artist discographies from Deezer with smart folder organization and automatic library synchronization. Requires Deezer subscription
 
-## Features
-
-- **One command** - Download an artist's complete discography
-- **Smart organization** - `Artist / Album Name` folder structure
-- **Auto-detection** - Identifies releases as Album, EP, or Single
-- **Deduplication** - Skips already-downloaded albums
-- **Multiple formats** - FLAC, MP3 320kbps, or MP3 128kbps
-- **Retry logic** - Handles network issues gracefully
-- **Library sync** - Automatically check your entire library for new releases
-- **Smart caching** - Fast subsequent runs using cached library scan
-- **Ignore list** - Skip artists you don't want to sync
-- **Programmatic API** - Use as a library in your own projects
-- **Scheduled sync** - Non-interactive mode for task schedulers
+**Features:** Full discography downloads · FLAC/MP3 320/MP3 128 · Album/EP/Single detection · Library sync · Skip existing · Plex integration
 
 ## Quick Start
 
-Requires [Bun](https://bun.sh):
+Requires [Bun](https://bun.sh) ≥ 1.0.0.
 
 ```bash
-# Install Bun
-curl -fsSL https://bun.sh/install | bash
-
-# Install dependencies
 bun install
-
-# Download an artist's discography
 bun run dev "Artist Name"
 ```
 
-Before first run, create a `.env` file in the project root (see Configuration section below).
+Create a `.env` file with at minimum `DEEZER_ARL=<your_token>` before first run.
 
-## CLI Commands
+## Commands
 
-### Download Artist Discography
+| Command | Alias | Description |
+|---------|-------|-------------|
+| `bun run dev <artist>` | — | Download artist discography (shorthand) |
+| `bun run dev download <artist>` | `d` | Download artist discography |
+| `bun run dev track <track> [artist]` | `t` | Download a single track |
+| `bun run dev sync` | `s` | Sync library (check all artists for new releases) |
+| `bun run dev status` | `st` | Show sync status |
+| `bun run dev errors` | `e` | View recent sync errors |
+| `bun run sync` | — | Standalone sync (same as `dev sync`) |
+| `bun run sync:scheduled` | — | Non-interactive sync for task schedulers |
+| `bun run tag:existing [artist]` | — | Tag existing files with RELEASETYPE |
+| `bun run cache:clear --all` | — | Clear check history and library cache |
+| `bun run ignore:add "Artist"` | — | Add artist to sync ignore list |
+| `bun run ignore:remove "Artist"` | — | Remove artist from sync ignore list |
+| `bun run ignore:list` | — | List ignored artists |
 
-Download a specific artist's complete discography:
+### Common Options
 
-```bash
-# Using the main entry point (backward compatible)
-bun run dev "Tame Impala"
-bun run dev "Tame Impala" -b 320
-bun run dev "Tame Impala" --dry-run
+**download / track:** `-b, --bitrate <flac|320|128>` (default: flac) · `--dry-run`
 
-# Using the new command structure
-bun run dev download "Tame Impala"
-bun run dev download "Tame Impala" -b 320
-bun run dev download "Tame Impala" --dry-run
+**sync:** `--full` · `--artist <name>` · `--dry-run` · `-c, --concurrency <n>` (default: 5) · `--since <hours>` (default: 24) · `-b, --bitrate`
 
-# Using the alias
-bun run dev d "Tame Impala"
-```
+**status:** `--json`
 
-| Option | Description |
-|--------|-------------|
-| `-b, --bitrate` | `flac`, `320`, or `128` (default: flac) |
-| `--dry-run` | Preview what would be downloaded without actually downloading |
-
-### Download a Specific Song
-
-Download a single track/song:
-
-```bash
-# Search for a track by name
-bun run dev track "Let It Happen"
-bun run dev track "Let It Happen" "Tame Impala"
-
-# Using the alias
-bun run dev t "Let It Happen" "Tame Impala"
-```
-
-| Argument | Description |
-|----------|-------------|
-| `<track>` | Track name to search and download (required) |
-| `[artist]` | Artist name (optional, helps narrow search results) |
-
-**Note:** Due to a limitation in commander.js v12 with subcommand options, the artist name must be provided as a positional argument rather than using `-a` or `--artist`. Other options like `--bitrate` and `--dry-run` are not currently supported for the track command, but the default bitrate (FLAC) will be used.
-
-The track will be downloaded to the appropriate artist/album folder structure, just like when downloading a full discography.
-
-### Sync Library
-
-Sync your entire music library to find and download new releases:
-
-```bash
-# Sync all artists (skips recently checked ones)
-bun run sync
-# Or using the main entry point
-bun run dev sync
-bun run dev s  # Using alias
-
-# Force check all artists
-bun run sync --full
-
-# Sync specific artist only
-bun run sync --artist "Tame Impala"
-
-# With options
-bun run sync --full --bitrate 320 --concurrency 10
-```
-
-| Option | Description |
-|--------|-------------|
-| `--full` | Force check all artists (ignore last check time) |
-| `--artist <name>` | Sync specific artist only |
-| `--dry-run` | Preview what would be downloaded |
-| `-c, --concurrency <n>` | Number of parallel artist checks (default: 5) |
-| `--since <hours>` | Only check artists not checked in last N hours (default: 24) |
-| `-b, --bitrate` | `flac`, `320`, or `128` (default: flac) |
+**errors:** `--limit <n>` (default: 20) · `--since <hours>` (default: 24) · `--json`
 
 ## Configuration
 
-Configuration is stored in a `.env` file in the project root. Create this file manually:
-
-```bash
-# Create .env file
-touch .env
-```
-
-Then edit `.env` with your settings:
+Create `.env` in the project root:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DEEZER_ARL` | Your Deezer ARL token (see below for how to get it) | Required |
-| `MUSIC_ROOT_PATH` | Where downloaded music will be saved | `~/Music` (or `%USERPROFILE%\Music` on Windows) |
-| `SYNC_STATE_PATH` | Path to sync state file | `.yhdl/sync-state.json` |
-| `ERROR_LOG_PATH` | Path to error log file | `.yhdl/sync-errors.json` |
-| `SYNC_CONCURRENCY` | Number of parallel artist checks during sync | `5` |
-| `SYNC_CHECK_INTERVAL` | Hours between artist checks (for skipping) | `24` |
-| `PLEX_WEBHOOK_URL` | Plex webhook URL to trigger library scan after downloads | Optional |
-| `PLEX_WEBHOOK_TOKEN` | Plex API token (if required by webhook) | Optional |
+| `DEEZER_ARL` | Deezer ARL cookie (required) | — |
+| `MUSIC_ROOT_PATH` | Where music is saved | `~/Music` |
+| `SYNC_STATE_PATH` | Sync state file path | `.yhdl/sync-state.json` |
+| `ERROR_LOG_PATH` | Error log path | `.yhdl/sync-errors.json` |
+| `SYNC_CONCURRENCY` | Parallel artist checks | `5` |
+| `SYNC_CHECK_INTERVAL` | Hours between checks | `24` |
+| `PLEX_WEBHOOK_URL` | Plex refresh webhook | Optional |
+| `PLEX_WEBHOOK_TOKEN` | Plex API token | Optional |
 
-Example `.env` file:
-
-```env
-DEEZER_ARL=your_arl_token_here
-MUSIC_ROOT_PATH=C:\Users\YourName\Music
-SYNC_CONCURRENCY=5
-SYNC_CHECK_INTERVAL=24
-PLEX_WEBHOOK_URL=http://your-plex-server:32400/library/sections/1/refresh
-PLEX_WEBHOOK_TOKEN=your_plex_token_here
-```
-
-### Getting Your Deezer ARL Token
-
-The ARL (Authentification Request Language) token is required to authenticate with Deezer. To get it:
-
-1. Open [deezer.com](https://www.deezer.com) in your browser
-2. Log in to your account
-3. Open Developer Tools (F12 or right-click → Inspect)
-4. Go to the **Application** tab (Chrome) or **Storage** tab (Firefox)
-5. Navigate to **Cookies** → `https://www.deezer.com`
-6. Find the cookie named `arl`
-7. Copy its value and paste it into your `.env` file as `DEEZER_ARL`
-
-**Note:** ARL tokens can expire. If you get authentication errors, get a new token and update your `.env` file. The CLI will prompt you for a new ARL if the current one is invalid.
+**Getting your ARL:** Log in to [deezer.com](https://www.deezer.com) → DevTools → Application → Cookies → copy the `arl` value.
 
 ## Folder Structure
-
-Music is organized in a clean `Artist / Album` structure:
 
 ```
 Music/
 ├── Tame Impala/
 │   ├── Currents/
-│   │   ├── 01 - Let It Happen.flac
-│   │   ├── 02 - Nangs.flac
-│   │   └── ...
-│   ├── Lonerism/
-│   │   ├── 01 - Be Above It.flac
-│   │   └── ...
-│   └── The Less I Know The Better/
+│   │   └── 01 - Let It Happen.flac
+│   └── The Less I Know The Better [Single]/
 │       └── 01 - The Less I Know The Better.flac
 └── Various Artists/
-    └── Compilation Album Name/
-        └── ...
+    └── Compilation Name/
 ```
 
-- Each artist gets their own folder
-- Each release (album, EP, single) gets its own subfolder
-- Tracks are numbered and named: `01 - Track Name.flac`
-- Compilation albums are placed in a `Various Artists` folder
-- Files are tagged with metadata (artist, album, track number, etc.)
-
-## Scheduled Sync
-
-Non-interactive sync mode designed for task schedulers (Windows Task Scheduler, cron, etc.). This script runs without prompting for user input and requires `DEEZER_ARL` to be set in your `.env` file.
-
-```bash
-# Run scheduled sync manually
-bun run sync:scheduled
-
-# With options
-bun run sync:scheduled --full --bitrate 320 --concurrency 10
-
-# With custom log file
-bun run sync:scheduled --log logs/my-sync.log
-```
-
-| Option | Description |
-|--------|-------------|
-| `--full` | Force check all artists (ignore last check time) |
-| `--bitrate` | `flac`, `320`, or `128` (default: flac) |
-| `--concurrency <n>` | Number of parallel artist checks (default: 5) |
-| `--since <hours>` | Only check artists not checked in last N hours (default: 24) |
-| `--log <path>` | Custom log file path |
-
-**What it does:**
-- Scans your music folder for all artists
-- Checks each artist on Deezer for new releases
-- Downloads any missing releases automatically
-- Shows detailed list of downloaded releases in output
-- Generates a summary file (`.yhdl/sync-summary.json`) with download details
-- Triggers Plex library scan if `PLEX_WEBHOOK_URL` is configured
-- Logs all output to a file (default: `logs/scheduled-sync-YYYYMMDD.log`)
-
-**Smart caching:** The first run scans your library. Future runs use a cache (valid 24 hours) to skip scanning, making it much faster.
-
-**Skip recently checked artists:** Artists checked in the last 24 hours are automatically skipped (unless you use `--full`).
-
-**Summary file:** After each sync, a summary file is generated at `.yhdl/sync-summary.json` containing:
-- Timestamp of the sync
-- Summary statistics
-- Detailed list of all downloaded releases (artist, album, release date, track count)
-- List of any errors encountered
-
-This makes it easy to see what was downloaded and integrate with other tools (like Plex notification systems).
-
-### Windows Task Scheduler
-
-A batch script is provided for Windows Task Scheduler:
-
-```bash
-# Run the batch script (creates logs automatically)
-scripts\scheduled-sync.bat
-```
-
-The batch script automatically:
-- Changes to the project directory
-- Creates a `logs` directory if needed
-- Generates a dated log file (`logs/scheduled-sync-YYYYMMDD.log`)
-- Runs the scheduled sync with logging
-
-### Ignoring Artists
-
-Skip artists you don't want to sync. The ignore list is stored in the sync state file and persists across runs.
-
-```bash
-# Add artists to ignore list
-bun run ignore:add "Artist Name"
-bun run ignore:add "Artist 1" "Artist 2" "Artist 3"
-
-# Remove artists from ignore list
-bun run ignore:remove "Artist Name"
-
-# List ignored artists
-bun run ignore:list
-
-# Clear ignore list
-bun run ignore:clear
-```
-
-Ignored artists are never checked during sync. Your ignore list is saved and persists across runs.
-
-### Cache Management
-
-Clear cache to force re-checking artists or rescanning your library:
-
-```bash
-# Clear check history (forces all artists to be checked again)
-bun run cache:clear --check-history
-
-# Clear library scan cache (forces library rescan)
-bun run cache:clear --library
-
-# Clear all cache (check history + library cache)
-bun run cache:clear --all
-```
-
-**Note:** Cache clearing preserves your ignored artists list. Only check history and library cache are cleared.
-
-### Status & Errors
-
-Check sync status and view recent errors:
-
-```bash
-# Show sync status (last run, artists checked, errors, etc.)
-bun run status
-bun run dev status
-bun run dev st  # Using alias
-
-# View recent errors
-bun run errors
-bun run dev errors
-bun run dev e  # Using alias
-
-# View errors from last 48 hours (limit to 10)
-bun run errors --since 48 --limit 10
-
-# Output as JSON
-bun run status --json
-bun run errors --json
-```
-
-The status command shows:
-- Configuration status (ARL token validity, music root path)
-- Sync statistics (total artists, last full sync, artists checked recently)
-- Library cache status
-- Error counts (total and recent)
-
-The errors command shows recent failures with details about what went wrong.
-
-### Tag Existing Files
-
-Add RELEASETYPE metadata tags to existing FLAC/MP3 files in your library:
-
-```bash
-# Tag all files in your music library (uses MUSIC_ROOT_PATH from .env)
-bun run tag:existing
-
-# Tag files for a specific artist
-bun run tag:existing "Artist Name"
-
-# Preview what would be tagged (dry run)
-bun run tag:existing "Artist Name" --dry-run
-
-# Override music root path (instead of using .env)
-bun run tag:existing --path "C:\Users\YourName\Music"
-```
-
-| Option | Description |
-|--------|-------------|
-| `[artist]` | Artist name (optional - tags all artists if not specified) |
-| `-p, --path <path>` | Override music root path (default: MUSIC_ROOT_PATH from .env) |
-| `--dry-run` | Preview what would be tagged without making changes |
-
-This command scans your music library and adds `RELEASETYPE` tags (album, ep, or single) to files based on the number of tracks in each release directory.
-
-## Programmatic API
-
-yhdl can be used as a library in your own projects:
-
-```typescript
-import { downloadArtist, downloadTrack, syncLibrary } from "yhdl";
-
-// Download an artist's discography
-const result = await downloadArtist({
-  artistName: "Tame Impala",
-  bitrate: "flac",
-  musicRootPath: "/path/to/music",
-  deezerArl: "your_arl_token",
-});
-
-console.log(`Downloaded ${result.downloadedTracks} tracks`);
-
-// Download a specific track
-const trackResult = await downloadTrack({
-  trackQuery: "Let It Happen",
-  artistName: "Tame Impala", // Optional, helps narrow search
-  bitrate: "flac",
-  musicRootPath: "/path/to/music",
-  deezerArl: "your_arl_token",
-});
-
-console.log(`Downloaded: ${trackResult.track.title} by ${trackResult.track.artist.name}`);
-
-// Sync entire library
-const syncResult = await syncLibrary({
-  musicRootPath: "/path/to/music",
-  bitrate: "flac",
-  concurrency: 5,
-  checkIntervalHours: 24,
-  fullSync: false, // Set to true to check all artists regardless of last check time
-  dryRun: false, // Set to true to preview without downloading
-  specificArtist: undefined, // Optional: sync only this artist
-  deezerArl: "your_arl_token", // Optional: override ARL from config
-});
-
-console.log(`Found ${syncResult.summary.newReleases} new releases`);
-```
-
-See `src/api/index.ts` for all available exports.
+Track format: `01 - Track Name.flac` · Compilations → `Various Artists/` · Files tagged with title, artist, album, track number, ISRC, RELEASETYPE.
 
 ## Development
 
 ```bash
-# Run from source
-bun run dev "Artist"
-bun run dev download "Artist"
-bun run dev sync
-
-# Build to dist/
-bun run build
-
-# Run built version
-bun run start "Artist"
-
-# Run tests
-bun test
-bun test:watch
-bun test:coverage
-
-# Version management
-bun run version:patch   # Bump patch version
-bun run version:minor   # Bump minor version
-bun run version:major   # Bump major version
-bun run version:auto    # Auto-detect version bump from git commits
+bun run dev "Artist"   # Run from source
+bun run build          # Build to dist/
+bun test               # Run tests
+bun run version:patch  # Bump version
 ```
+
+For programmatic usage, see `src/api/index.ts`.
 
 ## License
 

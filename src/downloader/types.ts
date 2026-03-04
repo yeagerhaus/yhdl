@@ -1,8 +1,4 @@
-import type {
-	DiscographyAlbum,
-	EnrichedAPITrack,
-	GWTrack,
-} from "../deezer/types.js";
+import type { DiscographyAlbum, GWTrack } from "../deezer/types.js";
 
 export interface TrackDownloadInfo {
 	id: number;
@@ -80,28 +76,5 @@ export function gwTrackToDownloadInfo(
 		releaseDate: track.PHYSICAL_RELEASE_DATE,
 		bpm: undefined,
 		gain: track.GAIN,
-	};
-}
-
-export function enrichedTrackToDownloadInfo(
-	track: EnrichedAPITrack,
-): TrackDownloadInfo {
-	return {
-		id: track.id,
-		title: track.title,
-		artist: track.artist.name,
-		album: track.album?.title || "",
-		trackNumber: track.track_position,
-		discNumber: track.disk_number,
-		duration: track.duration,
-		isrc: track.isrc,
-		explicit: track.explicit_lyrics,
-		md5Origin: track.md5_origin || 0,
-		mediaVersion: track.media_version || 0,
-		trackToken: track.track_token,
-		albumCover: track.album?.cover_xl || "",
-		releaseDate: track.release_date,
-		bpm: track.bpm,
-		gain: track.gain,
 	};
 }

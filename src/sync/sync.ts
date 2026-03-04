@@ -225,18 +225,16 @@ async function processArtistsBatch<T, R>(
 	processor: (item: T) => Promise<R>,
 ): Promise<R[]> {
 	const results: R[] = [];
-	const executing: Promise<void>[] = [];
+	const executing = new Set<Promise<void>>();
 
 	for (const item of items) {
-		const promise = processor(item).then((result) => {
+		const promise: Promise<void> = processor(item).then((result) => {
 			results.push(result);
+			executing.delete(promise);
 		});
-
-		executing.push(promise);
-
-		if (executing.length >= concurrency) {
+		executing.add(promise);
+		if (executing.size >= concurrency) {
 			await Promise.race(executing);
-			executing.splice(executing.indexOf(promise), 1);
 		}
 	}
 

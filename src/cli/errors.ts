@@ -5,17 +5,6 @@ import pc from "picocolors";
 import { loadConfig } from "../config.js";
 import { loadFailureLog } from "../sync/logger.js";
 
-const program = new Command();
-
-program
-	.name("yhdl-errors")
-	.description("View recent sync errors and failures")
-	.version("1.0.0")
-	.option("--limit <n>", "Maximum number of errors to show", "20")
-	.option("--since <hours>", "Only show errors from last N hours", "24")
-	.option("--json", "Output as JSON")
-	.parse();
-
 function formatDate(isoString: string): string {
 	try {
 		const date = new Date(isoString);
@@ -37,12 +26,11 @@ function formatDuration(ms: number): string {
 	return `${seconds}s ago`;
 }
 
-export async function errorsCommand() {
-	const opts = program.opts<{
-		limit?: string;
-		since?: string;
-		json?: boolean;
-	}>();
+export async function errorsCommand(opts: {
+	limit?: string;
+	since?: string;
+	json?: boolean;
+}) {
 	const config = loadConfig();
 
 	const limit = parseInt(opts.limit || "20", 10);
@@ -142,7 +130,19 @@ export async function errorsCommand() {
 
 // Run the command if this file is executed directly
 if (import.meta.main) {
-	errorsCommand().catch((e) => {
+	const program = new Command();
+	program
+		.name("yhdl-errors")
+		.description("View recent sync errors and failures")
+		.version("1.10.0")
+		.option("--limit <n>", "Maximum number of errors to show", "20")
+		.option("--since <hours>", "Only show errors from last N hours", "24")
+		.option("--json", "Output as JSON")
+		.parse();
+
+	errorsCommand(
+		program.opts<{ limit?: string; since?: string; json?: boolean }>(),
+	).catch((e) => {
 		console.error(pc.red("Error:"), e.message);
 		process.exit(1);
 	});
