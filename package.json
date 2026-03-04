@@ -1,6 +1,6 @@
 {
 	"name": "yhdl",
-	"version": "1.11.5",
+	"version": "1.11.6",
 	"description": "Standalone music download tool with intelligent folder management",
 	"type": "module",
 	"main": "./src/index.ts",
