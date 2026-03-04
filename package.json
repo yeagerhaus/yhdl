@@ -1,6 +1,6 @@
 {
 	"name": "yhdl",
-	"version": "1.11.2",
+	"version": "1.11.3",
 	"description": "Standalone music download tool with intelligent folder management",
 	"type": "module",
 	"main": "./src/index.ts",
@@ -10,7 +10,7 @@
 	},
 	"scripts": {
 		"dev": "bun run src/main.ts",
-		"build": "bun build src/main.ts --outfile dist/main.js --target bun && bun build src/index.ts --outfile dist/index.js --target bun",
+		"build": "bun build src/main.ts --outfile dist/main.js --target bun --packages external && bun build src/index.ts --outfile dist/index.js --target bun --packages external",
 		"start": "bun run dist/main.js",
 		"sync": "bun run src/cli/sync.ts",
 		"sync:scheduled": "bun run src/cli/scheduled-sync.ts",
