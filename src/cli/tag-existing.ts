@@ -1,28 +1,31 @@
 #!/usr/bin/env bun
 
+import fs from "node:fs";
+import path from "node:path";
 import { Command } from "commander";
-import fs from "fs";
-import path from "path";
+import pc from "picocolors";
+import { getConfig } from "../config.js";
+import type { DiscographyAlbum } from "../deezer/types.js";
 import { tagTrack } from "../downloader/tagger.js";
 import type { TrackDownloadInfo } from "../downloader/types.js";
 import { determineReleaseType } from "../folder-resolver.js";
-import type { DiscographyAlbum } from "../deezer/types.js";
-import { getConfig } from "../config.js";
-import pc from "picocolors";
 
 const program = new Command();
 
 program
 	.name("tag-existing")
 	.description("Add RELEASETYPE metadata tags to existing FLAC/MP3 files")
-	.argument("[artist]", "Artist name (optional - tags all artists if not specified)")
+	.argument(
+		"[artist]",
+		"Artist name (optional - tags all artists if not specified)",
+	)
 	.option("-p, --path <path>", "Override music root path (default: from .env)")
 	.option("--dry-run", "Preview what would be tagged without making changes")
 	.action(async (artistName, options) => {
 		const config = getConfig();
-		const musicRootPath = options.path 
-			? options.path 
-			: artistName 
+		const musicRootPath = options.path
+			? options.path
+			: artistName
 				? path.join(config.musicRootPath, artistName)
 				: config.musicRootPath;
 		const dryRun = options.dryRun || false;
@@ -30,7 +33,9 @@ program
 		if (!fs.existsSync(musicRootPath)) {
 			console.error(pc.red(`Error: Path does not exist: ${musicRootPath}`));
 			if (artistName) {
-				console.error(pc.dim(`  Artist folder not found. Checked: ${musicRootPath}`));
+				console.error(
+					pc.dim(`  Artist folder not found. Checked: ${musicRootPath}`),
+				);
 			}
 			process.exit(1);
 		}
@@ -80,7 +85,7 @@ program
 				if (hasAudioFiles && depth > 0) {
 					albumDirs.push(dir);
 				}
-			} catch (error) {
+			} catch (_error) {
 				// Skip directories we can't read
 			}
 		}
@@ -89,13 +94,13 @@ program
 			filePath: string,
 			albumDir: string,
 			trackCount: number,
-			dryRun: boolean
+			dryRun: boolean,
 		): Promise<void> {
 			try {
 				// Extract track info from filename (format: "01 - Track Name.ext")
 				const filename = path.basename(filePath, path.extname(filePath));
 				const trackMatch = filename.match(/^(\d+)\s*-\s*(.+)$/);
-				
+
 				if (!trackMatch) {
 					filesSkipped++;
 					return;
@@ -109,16 +114,19 @@ program
 				// Or: Artist/Album/Track.ext (if pointing directly at artist folder)
 				const relativePath = path.relative(musicRootPath, albumDir);
 				const parts = relativePath.split(path.sep).filter((p) => p.length > 0);
-				
+
 				// If artist name was provided, use it; otherwise extract from path
 				let extractedArtistName: string;
 				let albumName: string;
-				
+
 				if (artistName) {
 					// Artist name was provided, so musicRootPath is already the artist folder
 					// Album is the directory name
 					extractedArtistName = artistName;
-					albumName = parts.length > 0 ? parts[parts.length - 1] : path.basename(albumDir);
+					albumName =
+						parts.length > 0
+							? parts[parts.length - 1]
+							: path.basename(albumDir);
 				} else if (parts.length >= 2) {
 					// Standard structure: Artist/Album
 					extractedArtistName = parts[0];
@@ -139,7 +147,8 @@ program
 					id: "0",
 					title: albumName,
 					nb_tracks: trackCount,
-					record_type: trackCount <= 2 ? "single" : trackCount <= 6 ? "ep" : "album",
+					record_type:
+						trackCount <= 2 ? "single" : trackCount <= 6 ? "ep" : "album",
 				} as DiscographyAlbum;
 
 				const releaseType = determineReleaseType(mockAlbum);
@@ -170,7 +179,7 @@ program
 					console.log(
 						pc.dim("  [DRY RUN] Would tag: ") +
 							pc.cyan(path.relative(musicRootPath, filePath)) +
-							pc.dim(` with RELEASETYPE=${releaseType.toLowerCase()}`)
+							pc.dim(` with RELEASETYPE=${releaseType.toLowerCase()}`),
 					);
 					filesTagged++;
 				} else {
@@ -188,15 +197,16 @@ program
 					console.log(
 						pc.green("  ✓ Tagged: ") +
 							pc.cyan(path.relative(musicRootPath, filePath)) +
-							pc.dim(` (${releaseType})`)
+							pc.dim(` (${releaseType})`),
 					);
 					filesTagged++;
 				}
 			} catch (error) {
 				errors++;
 				console.error(
-					pc.red(`  ✗ Error tagging ${path.relative(musicRootPath, filePath)}: `) +
-						(error instanceof Error ? error.message : String(error))
+					pc.red(
+						`  ✗ Error tagging ${path.relative(musicRootPath, filePath)}: `,
+					) + (error instanceof Error ? error.message : String(error)),
 				);
 			}
 		}
@@ -232,4 +242,3 @@ program
 	});
 
 program.parse();
-

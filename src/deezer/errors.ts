@@ -53,4 +53,3 @@ export class DataException extends APIError {
 		this.name = "DataException";
 	}
 }
-

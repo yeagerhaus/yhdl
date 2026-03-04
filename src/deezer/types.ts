@@ -131,7 +131,8 @@ export interface APIContributor {
 	role: string | null | undefined;
 }
 
-export interface EnrichedAPITrack extends Omit<APITrack, "album" | "artist" | "contributors"> {
+export interface EnrichedAPITrack
+	extends Omit<APITrack, "album" | "artist" | "contributors"> {
 	type?: string;
 	md5_origin?: number;
 	filesizes?: Record<string, number | undefined>;
@@ -288,4 +289,3 @@ export interface DiscographyAlbum {
 	is_official?: boolean;
 	artist_role?: string;
 }
-

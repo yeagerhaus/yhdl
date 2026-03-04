@@ -1,10 +1,8 @@
-import { describe, test, expect, beforeEach, afterEach, mock } from "bun:test";
-import fs from "fs";
-import path from "path";
-import os from "os";
-import { downloadArtist, type DownloadArtistOptions } from "./download.js";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import fs from "node:fs";
 import { setConfig } from "../config.js";
-import { createTempDir, removeTempDir } from "../../test/helpers.js";
+import { createTempDir, removeTempDir } from "../test-helpers.js";
+import { type DownloadArtistOptions, downloadArtist } from "./download.js";
 
 // Mock Deezer class
 const mockDeezer = {
@@ -19,7 +17,7 @@ const mockDeezer = {
 						link: "https://deezer.com/artist/123",
 					},
 				],
-			})
+			}),
 		),
 	},
 	gw: {
@@ -35,7 +33,7 @@ const mockDeezer = {
 						cover: "cover.jpg",
 					},
 				],
-			})
+			}),
 		),
 		get_album_tracks: mock(() => Promise.resolve([])),
 	},
@@ -70,13 +68,15 @@ describe("downloadArtist (Programmatic API)", () => {
 			musicRootPath: testMusicRoot,
 		};
 
-		await expect(downloadArtist(options)).rejects.toThrow("DEEZER_ARL not found");
+		await expect(downloadArtist(options)).rejects.toThrow(
+			"DEEZER_ARL not found",
+		);
 	});
 
 	test("downloadArtist accepts deezerArl in options", async () => {
 		// Mock the Deezer import
-		const originalDeezer = await import("../deezer/index.js");
-		const DeezerMock = mock(() => mockDeezer);
+		const _originalDeezer = await import("../deezer/index.js");
+		const _DeezerMock = mock(() => mockDeezer);
 
 		const options: DownloadArtistOptions = {
 			artistName: "Test Artist",
@@ -104,7 +104,7 @@ describe("downloadArtist (Programmatic API)", () => {
 		setConfig({
 			musicRootPath: testMusicRoot,
 		});
-		const options: DownloadArtistOptions = {
+		const _options: DownloadArtistOptions = {
 			artistName: "Test Artist",
 			// musicRootPath not provided
 		};

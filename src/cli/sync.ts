@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
-import { Command } from "commander";
+import path from "node:path";
 import * as readline from "node:readline/promises";
-import pc from "picocolors";
-import path from "path";
-import { syncLibrary } from "../sync/sync.js";
-import { loadConfig, loadArl, saveArl, clearArl } from "../config.js";
-import { Deezer, TrackFormats } from "../deezer/index.js";
-import { parseBitrate } from "../utils.js";
+import { Command } from "commander";
 import ora from "ora";
+import pc from "picocolors";
+import { clearArl, loadArl, loadConfig, saveArl } from "../config.js";
+import { Deezer } from "../deezer/index.js";
+import { syncLibrary } from "../sync/sync.js";
+import { parseBitrate } from "../utils.js";
 
 const program = new Command();
 
@@ -18,12 +18,18 @@ program
 	.version("1.0.0")
 	.option("--full", "Force check all artists (ignore last check time)")
 	.option("--artist <name>", "Sync specific artist only")
-	.option("--dry-run", "Preview what would be downloaded without actually downloading")
+	.option(
+		"--dry-run",
+		"Preview what would be downloaded without actually downloading",
+	)
 	.option("-c, --concurrency <n>", "Parallel artist checks", "5")
-	.option("--since <hours>", "Only check artists not checked in last N hours", "24")
+	.option(
+		"--since <hours>",
+		"Only check artists not checked in last N hours",
+		"24",
+	)
 	.option("-b, --bitrate <type>", "Bitrate: flac, 320, 128", "flac")
 	.parse();
-
 
 export async function syncCommand() {
 	const opts = program.opts<{
@@ -45,8 +51,12 @@ export async function syncCommand() {
 	let arl = loadArl();
 
 	if (!arl) {
-		console.log(pc.yellow("  ⚠ No ARL found. Please enter your Deezer ARL token."));
-		console.log(pc.dim("    (You can find this in your browser cookies at deezer.com)\n"));
+		console.log(
+			pc.yellow("  ⚠ No ARL found. Please enter your Deezer ARL token."),
+		);
+		console.log(
+			pc.dim("    (You can find this in your browser cookies at deezer.com)\n"),
+		);
 
 		const rl = readline.createInterface({
 			input: process.stdin,
@@ -79,12 +89,18 @@ export async function syncCommand() {
 		loggedIn = await dz.loginViaArl(arl);
 
 		if (!loggedIn) {
-			loginSpinner.fail(pc.red("Login failed. Your ARL token may be expired or invalid."));
+			loginSpinner.fail(
+				pc.red("Login failed. Your ARL token may be expired or invalid."),
+			);
 			clearArl();
 
 			console.log();
 			console.log(pc.yellow("  ⚠ Please enter a new Deezer ARL token."));
-			console.log(pc.dim("    (You can find this in your browser cookies at deezer.com)\n"));
+			console.log(
+				pc.dim(
+					"    (You can find this in your browser cookies at deezer.com)\n",
+				),
+			);
 
 			const rl = readline.createInterface({
 				input: process.stdin,
@@ -102,13 +118,17 @@ export async function syncCommand() {
 			arl = arl.trim();
 			loginAttempts++;
 		} else {
-			loginSpinner.succeed(pc.green(`Logged in as ${pc.bold(dz.currentUser?.name || "Unknown")}`));
+			loginSpinner.succeed(
+				pc.green(`Logged in as ${pc.bold(dz.currentUser?.name || "Unknown")}`),
+			);
 			saveArl(arl);
 		}
 	}
 
 	if (!loggedIn) {
-		console.error(pc.red("\n  ✗ Failed to login after multiple attempts. Exiting."));
+		console.error(
+			pc.red("\n  ✗ Failed to login after multiple attempts. Exiting."),
+		);
 		process.exit(1);
 	}
 
@@ -127,7 +147,10 @@ export async function syncCommand() {
 
 	// Show summary file location if created
 	if (result.downloadedReleases.length > 0 || result.errors.length > 0) {
-		const summaryPath = path.join(path.dirname(config.syncStatePath || ".yhdl/sync-state.json"), "sync-summary.json");
+		const summaryPath = path.join(
+			path.dirname(config.syncStatePath || ".yhdl/sync-state.json"),
+			"sync-summary.json",
+		);
 		console.log(pc.dim(`  Summary saved to: ${summaryPath}`));
 		console.log();
 	}
@@ -157,4 +180,3 @@ if (import.meta.main) {
 		process.exit(1);
 	});
 }
-

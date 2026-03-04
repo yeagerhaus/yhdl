@@ -24,4 +24,3 @@ export function parseBitrate(bitrate: number | string | undefined): number {
 	}
 	return TrackFormats.FLAC;
 }
-

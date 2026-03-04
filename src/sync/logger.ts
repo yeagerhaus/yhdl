@@ -1,5 +1,5 @@
-import fs from "fs";
-import path from "path";
+import fs from "node:fs";
+import path from "node:path";
 import type { DownloadResult } from "../downloader/types.js";
 
 export interface SyncSummary {
@@ -43,7 +43,7 @@ export function loadFailureLog(logPath: string): FailureLogEntry[] {
  */
 export function writeFailureLog(
 	logPath: string,
-	entry: Omit<FailureLogEntry, "timestamp">
+	entry: Omit<FailureLogEntry, "timestamp">,
 ): void {
 	const dir = path.dirname(logPath);
 	if (!fs.existsSync(dir)) {
@@ -103,14 +103,18 @@ export function logArtistCheck(
 	artist: string,
 	artistId: number,
 	newReleases: number,
-	skipped: boolean = false
+	skipped: boolean = false,
 ): void {
 	if (skipped) {
-		console.log(`  ⏭  ${artist} (ID: ${artistId}) - Skipped (checked recently)`);
+		console.log(
+			`  ⏭  ${artist} (ID: ${artistId}) - Skipped (checked recently)`,
+		);
 	} else if (newReleases === 0) {
 		console.log(`  ✓  ${artist} (ID: ${artistId}) - No new releases`);
 	} else {
-		console.log(`  →  ${artist} (ID: ${artistId}) - ${newReleases} new release(s)`);
+		console.log(
+			`  →  ${artist} (ID: ${artistId}) - ${newReleases} new release(s)`,
+		);
 	}
 }
 
@@ -128,7 +132,13 @@ export function logDownloadResult(result: DownloadResult): void {
  */
 export function logSyncComplete(
 	summary: SyncSummary,
-	downloadedReleases?: Array<{ artist: string; release: string; releaseDate?: string; tracks: number; releaseType: string }>
+	downloadedReleases?: Array<{
+		artist: string;
+		release: string;
+		releaseDate?: string;
+		tracks: number;
+		releaseType: string;
+	}>,
 ): void {
 	const durationSeconds = (summary.duration / 1000).toFixed(1);
 	const durationMinutes = (summary.duration / 60000).toFixed(1);
@@ -146,18 +156,25 @@ export function logSyncComplete(
 	}
 	console.log(`  Duration: ${durationSeconds}s (${durationMinutes}min)`);
 	console.log("═══════════════════════════════════════════════════════════");
-	
+
 	// Show downloaded releases if any
 	if (downloadedReleases && downloadedReleases.length > 0) {
 		console.log();
 		console.log("  📥 Downloaded Releases:");
 		for (const release of downloadedReleases) {
-			const typeLabel = release.releaseType === "album" ? "Album" : release.releaseType === "ep" ? "EP" : "Single";
+			const typeLabel =
+				release.releaseType === "album"
+					? "Album"
+					: release.releaseType === "ep"
+						? "EP"
+						: "Single";
 			const dateLabel = release.releaseDate ? ` (${release.releaseDate})` : "";
-			console.log(`    • ${release.artist} - ${release.release} [${typeLabel}]${dateLabel} (${release.tracks} tracks)`);
+			console.log(
+				`    • ${release.artist} - ${release.release} [${typeLabel}]${dateLabel} (${release.tracks} tracks)`,
+			);
 		}
 	}
-	
+
 	console.log();
 }
 
@@ -171,8 +188,11 @@ export function logArtistCheckError(artist: string, error: string): void {
 /**
  * Log progress for batch operations
  */
-export function logProgress(current: number, total: number, label: string): void {
+export function logProgress(
+	current: number,
+	total: number,
+	label: string,
+): void {
 	const percent = ((current / total) * 100).toFixed(1);
 	console.log(`  [${current}/${total}] ${percent}% - ${label}`);
 }
-

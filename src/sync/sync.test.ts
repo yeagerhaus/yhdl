@@ -1,10 +1,10 @@
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import fs from "fs";
-import path from "path";
-import os from "os";
-import { syncLibrary, type SyncOptions } from "./sync.js";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { setConfig } from "../config.js";
-import { createTempDir, removeTempDir } from "../../test/helpers.js";
+import { createTempDir, removeTempDir } from "../test-helpers.js";
+import { type SyncOptions, syncLibrary } from "./sync.js";
 
 describe("syncLibrary (Programmatic API)", () => {
 	let testMusicRoot: string;
@@ -13,8 +13,14 @@ describe("syncLibrary (Programmatic API)", () => {
 
 	beforeEach(() => {
 		testMusicRoot = createTempDir("yhdl-sync-test");
-		testStatePath = path.join(os.tmpdir(), `yhdl-sync-state-${Date.now()}.json`);
-		testErrorLogPath = path.join(os.tmpdir(), `yhdl-sync-errors-${Date.now()}.json`);
+		testStatePath = path.join(
+			os.tmpdir(),
+			`yhdl-sync-state-${Date.now()}.json`,
+		);
+		testErrorLogPath = path.join(
+			os.tmpdir(),
+			`yhdl-sync-errors-${Date.now()}.json`,
+		);
 		// Clear programmatic config
 		setConfig({
 			musicRootPath: testMusicRoot,
@@ -65,7 +71,7 @@ describe("syncLibrary (Programmatic API)", () => {
 			deezerArl: "config_arl_token",
 		});
 
-		const options: SyncOptions = {
+		const _options: SyncOptions = {
 			musicRootPath: testMusicRoot,
 			statePath: testStatePath,
 			errorLogPath: testErrorLogPath,
@@ -73,7 +79,7 @@ describe("syncLibrary (Programmatic API)", () => {
 		};
 
 		// Verify config is set
-		const config = setConfig;
+		const _config = setConfig;
 		expect(testMusicRoot).toBeTruthy();
 	});
 

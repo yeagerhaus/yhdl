@@ -1,10 +1,14 @@
-import fs from "fs";
-import path from "path";
-import { type Deezer, TrackFormats, type GWTrack } from "../deezer/index.js";
-import { streamTrack, type ProgressCallback } from "./decryption.js";
-import { tagTrack, downloadCover } from "./tagger.js";
-import { gwTrackToDownloadInfo, type DownloadResult, type TrackDownloadInfo } from "./types.js";
+import fs from "node:fs";
+import path from "node:path";
+import { type Deezer, type GWTrack, TrackFormats } from "../deezer/index.js";
 import { generateCryptedStreamURL } from "./crypto.js";
+import { type ProgressCallback, streamTrack } from "./decryption.js";
+import { downloadCover, tagTrack } from "./tagger.js";
+import {
+	type DownloadResult,
+	gwTrackToDownloadInfo,
+	type TrackDownloadInfo,
+} from "./types.js";
 
 const FORMAT_NAMES: Record<number, string> = {
 	[TrackFormats.FLAC]: "FLAC",
@@ -29,8 +33,16 @@ export interface DownloaderOptions {
 	downloadPath: string;
 	releaseType?: "Album" | "EP" | "Single";
 	onProgress?: ProgressCallback;
-	onTrackStart?: (track: TrackDownloadInfo, index: number, total: number) => void;
-	onTrackComplete?: (result: DownloadResult, index: number, total: number) => void;
+	onTrackStart?: (
+		track: TrackDownloadInfo,
+		index: number,
+		total: number,
+	) => void;
+	onTrackComplete?: (
+		result: DownloadResult,
+		index: number,
+		total: number,
+	) => void;
 }
 
 export class Downloader {
@@ -42,7 +54,10 @@ export class Downloader {
 		this.options = options;
 	}
 
-	async downloadAlbum(albumId: string, albumTitle: string): Promise<DownloadResult[]> {
+	async downloadAlbum(
+		albumId: string,
+		albumTitle: string,
+	): Promise<DownloadResult[]> {
 		const results: DownloadResult[] = [];
 
 		// Get album tracks
@@ -73,7 +88,10 @@ export class Downloader {
 		return results;
 	}
 
-	async downloadTrack(gwTrack: GWTrack, albumTitle?: string): Promise<DownloadResult> {
+	async downloadTrack(
+		gwTrack: GWTrack,
+		albumTitle?: string,
+	): Promise<DownloadResult> {
 		const trackInfo = gwTrackToDownloadInfo(gwTrack, albumTitle);
 		// Add release type if available
 		if (this.options.releaseType) {
@@ -82,32 +100,39 @@ export class Downloader {
 
 		try {
 			// Get track with full info
-			const fullTrack = await this.dz.gw.get_track_with_fallback(gwTrack.SNG_ID);
+			const fullTrack = await this.dz.gw.get_track_with_fallback(
+				gwTrack.SNG_ID,
+			);
 
 			let downloadURL: string | null = null;
 			let actualBitrate = this.options.bitrate;
 
 			// Try preferred bitrate, fallback if needed
-			const bitratesToTry = [this.options.bitrate, TrackFormats.MP3_320, TrackFormats.MP3_128];
+			const bitratesToTry = [
+				this.options.bitrate,
+				TrackFormats.MP3_320,
+				TrackFormats.MP3_128,
+			];
 
 			// Method 1: Try the new media API
 			for (const bitrate of bitratesToTry) {
 				try {
 					const format = FORMAT_NAMES[bitrate];
-					downloadURL = await this.dz.get_track_url(fullTrack.TRACK_TOKEN, format);
+					downloadURL = await this.dz.get_track_url(
+						fullTrack.TRACK_TOKEN,
+						format,
+					);
 					if (downloadURL) {
 						actualBitrate = bitrate;
 						break;
 					}
-				} catch {
-					continue;
-				}
+				} catch {}
 			}
 
 			// Method 2: Fallback to legacy crypted URL using MD5_ORIGIN
 			// MD5_ORIGIN should be a 32-char hex string, not 0 or empty
 			const md5 = String(fullTrack.MD5_ORIGIN || "");
-			
+
 			if (!downloadURL && md5 && md5.length >= 32 && md5 !== "0") {
 				const mediaVersion = String(fullTrack.MEDIA_VERSION || 1);
 				const sngId = String(fullTrack.SNG_ID);
@@ -115,12 +140,23 @@ export class Downloader {
 				for (const bitrate of bitratesToTry) {
 					const formatCode = FORMAT_CODES[bitrate];
 					// Check if the track has a filesize for this format (indicates availability)
-					const filesizeKey = bitrate === TrackFormats.FLAC ? "FILESIZE_FLAC" :
-						bitrate === TrackFormats.MP3_320 ? "FILESIZE_MP3_320" : "FILESIZE_MP3_128";
-					const filesize = (fullTrack as Record<string, unknown>)[filesizeKey] as number | undefined;
+					const filesizeKey =
+						bitrate === TrackFormats.FLAC
+							? "FILESIZE_FLAC"
+							: bitrate === TrackFormats.MP3_320
+								? "FILESIZE_MP3_320"
+								: "FILESIZE_MP3_128";
+					const filesize = (fullTrack as unknown as Record<string, unknown>)[
+						filesizeKey
+					] as number | undefined;
 
 					if (filesize && filesize > 0) {
-						downloadURL = generateCryptedStreamURL(sngId, md5, mediaVersion, formatCode);
+						downloadURL = generateCryptedStreamURL(
+							sngId,
+							md5,
+							mediaVersion,
+							formatCode,
+						);
 						actualBitrate = bitrate;
 						break;
 					}
@@ -129,13 +165,22 @@ export class Downloader {
 				// If no filesize info, try anyway with MP3_128
 				if (!downloadURL) {
 					const formatCode = FORMAT_CODES[TrackFormats.MP3_128];
-					downloadURL = generateCryptedStreamURL(sngId, md5, mediaVersion, formatCode);
+					downloadURL = generateCryptedStreamURL(
+						sngId,
+						md5,
+						mediaVersion,
+						formatCode,
+					);
 					actualBitrate = TrackFormats.MP3_128;
 				}
 			}
 
 			if (!downloadURL) {
-				const md5Info = md5 ? (md5.length >= 32 ? "valid" : `len=${md5.length}`) : "missing";
+				const md5Info = md5
+					? md5.length >= 32
+						? "valid"
+						: `len=${md5.length}`
+					: "missing";
 				const hasToken = fullTrack.TRACK_TOKEN ? "yes" : "no";
 				return {
 					success: false,
@@ -163,7 +208,13 @@ export class Downloader {
 			}
 
 			// Download the track
-			await streamTrack(filePath, downloadURL, trackInfo.id, trackInfo.title, this.options.onProgress);
+			await streamTrack(
+				filePath,
+				downloadURL,
+				trackInfo.id,
+				trackInfo.title,
+				this.options.onProgress,
+			);
 
 			// Download cover for tagging
 			let coverPath: string | undefined;
@@ -206,4 +257,3 @@ function sanitizeFilename(name: string): string {
 		.trim()
 		.slice(0, 200); // Limit length
 }
-

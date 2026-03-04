@@ -1,7 +1,7 @@
-import fs from "fs";
-import path from "path";
-import type { SyncState, ArtistState, LibraryCache } from "./types.js";
+import fs from "node:fs";
+import path from "node:path";
 import { normalizeArtistName } from "../library/scanner.js";
+import type { LibraryCache, SyncState } from "./types.js";
 
 const DEFAULT_STATE: SyncState = {
 	artists: {},
@@ -60,7 +60,7 @@ export function updateArtistCheck(
 	state: SyncState,
 	artistId: number,
 	artistName: string,
-	timestamp: Date = new Date()
+	timestamp: Date = new Date(),
 ): void {
 	state.artists[artistId] = {
 		...(state.artists[artistId] || {}),
@@ -76,7 +76,7 @@ export function updateArtistCheck(
 export function updateArtistLastRelease(
 	state: SyncState,
 	artistId: number,
-	releaseDate: string
+	releaseDate: string,
 ): void {
 	if (!state.artists[artistId]) {
 		state.artists[artistId] = {
@@ -110,7 +110,7 @@ export function getLastCheck(state: SyncState, artistId: number): Date | null {
 export function shouldSkipArtist(
 	state: SyncState,
 	artistId: number,
-	checkIntervalHours: number
+	checkIntervalHours: number,
 ): boolean {
 	const lastCheck = getLastCheck(state, artistId);
 	if (!lastCheck) {
@@ -127,13 +127,16 @@ export function shouldSkipArtist(
 export function getAllArtistIds(state: SyncState): number[] {
 	return Object.keys(state.artists)
 		.map((id) => parseInt(id, 10))
-		.filter((id) => !isNaN(id));
+		.filter((id) => !Number.isNaN(id));
 }
 
 /**
  * Update last full sync timestamp
  */
-export function updateLastFullSync(state: SyncState, timestamp: Date = new Date()): void {
+export function updateLastFullSync(
+	state: SyncState,
+	timestamp: Date = new Date(),
+): void {
 	state.lastFullSync = timestamp.toISOString();
 }
 
@@ -143,7 +146,7 @@ export function updateLastFullSync(state: SyncState, timestamp: Date = new Date(
 export function cacheLibraryScan(
 	state: SyncState,
 	musicRootPath: string,
-	artists: Array<{ name: string; path: string }>
+	artists: Array<{ name: string; path: string }>,
 ): void {
 	state.libraryCache = {
 		artists,
@@ -159,7 +162,7 @@ export function cacheLibraryScan(
 export function getCachedLibraryScan(
 	state: SyncState,
 	musicRootPath: string,
-	maxAgeHours: number = 24
+	maxAgeHours: number = 24,
 ): LibraryCache | null {
 	const cache = state.libraryCache;
 	if (!cache) {
@@ -174,8 +177,9 @@ export function getCachedLibraryScan(
 	// Check if cache is still fresh
 	try {
 		const lastScanned = new Date(cache.lastScanned);
-		const hoursSinceScan = (Date.now() - lastScanned.getTime()) / (1000 * 60 * 60);
-		
+		const hoursSinceScan =
+			(Date.now() - lastScanned.getTime()) / (1000 * 60 * 60);
+
 		if (hoursSinceScan > maxAgeHours) {
 			return null; // Cache expired
 		}
@@ -192,7 +196,7 @@ export function getCachedLibraryScan(
 export function cacheArtistReleases(
 	state: SyncState,
 	artistId: number,
-	releaseFolderNames: string[]
+	releaseFolderNames: string[],
 ): void {
 	if (!state.artists[artistId]) {
 		state.artists[artistId] = {
@@ -209,7 +213,7 @@ export function cacheArtistReleases(
  */
 export function getCachedArtistReleases(
 	state: SyncState,
-	artistId: number
+	artistId: number,
 ): string[] | null {
 	const artist = state.artists[artistId];
 	return artist?.existingReleases || null;
@@ -225,7 +229,7 @@ export function isArtistIgnored(state: SyncState, artistName: string): boolean {
 
 	const normalizedName = normalizeArtistName(artistName);
 	return state.ignoredArtists.some(
-		(ignored) => normalizeArtistName(ignored) === normalizedName
+		(ignored) => normalizeArtistName(ignored) === normalizedName,
 	);
 }
 
@@ -238,9 +242,13 @@ export function addIgnoredArtist(state: SyncState, artistName: string): void {
 	}
 
 	const normalizedName = normalizeArtistName(artistName);
-	
+
 	// Check if already ignored
-	if (state.ignoredArtists.some((ignored) => normalizeArtistName(ignored) === normalizedName)) {
+	if (
+		state.ignoredArtists.some(
+			(ignored) => normalizeArtistName(ignored) === normalizedName,
+		)
+	) {
 		return; // Already ignored
 	}
 
@@ -251,14 +259,17 @@ export function addIgnoredArtist(state: SyncState, artistName: string): void {
 /**
  * Remove an artist from the ignore list
  */
-export function removeIgnoredArtist(state: SyncState, artistName: string): void {
+export function removeIgnoredArtist(
+	state: SyncState,
+	artistName: string,
+): void {
 	if (!state.ignoredArtists || state.ignoredArtists.length === 0) {
 		return;
 	}
 
 	const normalizedName = normalizeArtistName(artistName);
 	state.ignoredArtists = state.ignoredArtists.filter(
-		(ignored) => normalizeArtistName(ignored) !== normalizedName
+		(ignored) => normalizeArtistName(ignored) !== normalizedName,
 	);
 }
 
@@ -298,4 +309,3 @@ export function clearAllCache(state: SyncState): void {
 	clearCheckHistory(state);
 	clearLibraryCache(state);
 }
-

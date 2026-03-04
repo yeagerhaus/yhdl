@@ -9,9 +9,9 @@
  *   node manage-ignored-artists.js clear
  */
 
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { normalizeArtistName } from "../src/library/scanner.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -79,7 +79,11 @@ function addIgnoredArtist(state, artistName) {
 	const normalizedName = normalizeArtistName(artistName);
 
 	// Check if already ignored
-	if (state.ignoredArtists.some((ignored) => normalizeArtistName(ignored) === normalizedName)) {
+	if (
+		state.ignoredArtists.some(
+			(ignored) => normalizeArtistName(ignored) === normalizedName,
+		)
+	) {
 		console.log(`Artist "${artistName}" is already in the ignore list.`);
 		return;
 	}
@@ -98,7 +102,7 @@ function removeIgnoredArtist(state, artistName) {
 	const normalizedName = normalizeArtistName(artistName);
 	const beforeLength = state.ignoredArtists.length;
 	state.ignoredArtists = state.ignoredArtists.filter(
-		(ignored) => normalizeArtistName(ignored) !== normalizedName
+		(ignored) => normalizeArtistName(ignored) !== normalizedName,
 	);
 
 	if (state.ignoredArtists.length < beforeLength) {
@@ -145,7 +149,7 @@ const state = loadState();
 switch (command) {
 	case "add":
 		if (artistNames.length === 0) {
-			console.error('Error: Please provide at least one artist name.');
+			console.error("Error: Please provide at least one artist name.");
 			process.exit(1);
 		}
 		for (const artistName of artistNames) {
@@ -156,7 +160,7 @@ switch (command) {
 
 	case "remove":
 		if (artistNames.length === 0) {
-			console.error('Error: Please provide at least one artist name.');
+			console.error("Error: Please provide at least one artist name.");
 			process.exit(1);
 		}
 		for (const artistName of artistNames) {
@@ -179,4 +183,3 @@ switch (command) {
 		console.error("Valid commands: add, remove, list, clear");
 		process.exit(1);
 }
-

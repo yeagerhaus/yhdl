@@ -3,13 +3,20 @@
 import { Command } from "commander";
 import pc from "picocolors";
 import { loadConfig } from "../config.js";
-import { loadState, saveState, clearCheckHistory, clearLibraryCache, clearAllCache } from "../sync/state.js";
+import {
+	clearCheckHistory,
+	clearLibraryCache,
+	loadState,
+	saveState,
+} from "../sync/state.js";
 
 const program = new Command();
 
 program
 	.name("yhdl-cache")
-	.description("Manage sync cache - clear check history, library cache, or both")
+	.description(
+		"Manage sync cache - clear check history, library cache, or both",
+	)
 	.version("1.0.0")
 	.option("--check-history", "Clear check history (lastChecked timestamps)")
 	.option("--library", "Clear library scan cache")
@@ -53,7 +60,9 @@ export async function cacheCommand() {
 	// Clear as requested
 	if (clearHistory) {
 		clearCheckHistory(state);
-		console.log(pc.green(`  ✓ Cleared check history for ${artistCount} artist(s)`));
+		console.log(
+			pc.green(`  ✓ Cleared check history for ${artistCount} artist(s)`),
+		);
 	}
 
 	if (clearLib) {
@@ -84,7 +93,3 @@ if (import.meta.main) {
 		process.exit(1);
 	});
 }
-
-
-
-

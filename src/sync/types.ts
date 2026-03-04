@@ -22,4 +22,3 @@ export interface SyncState {
 	ignoredArtists?: string[]; // List of artist names to ignore (case-insensitive)
 	version: string; // For future migrations
 }
-

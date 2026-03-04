@@ -1,11 +1,23 @@
-import { Deezer, TrackFormats, type DiscographyAlbum, type APIArtist, type APITrack } from "../deezer/index.js";
+import fs from "node:fs";
+import path from "node:path";
+import { getConfig, loadArl } from "../config.js";
+import {
+	type APIArtist,
+	type APITrack,
+	Deezer,
+	type DiscographyAlbum,
+	TrackFormats,
+} from "../deezer/index.js";
 import { Downloader, type DownloadResult } from "../downloader/index.js";
-import { resolveArtistReleases, createReleaseFolders, type ResolvedRelease, findOrCreateArtistFolder, determineReleaseType, sanitizeFolderName } from "../folder-resolver.js";
-import { loadArl, getConfig } from "../config.js";
+import {
+	createReleaseFolders,
+	determineReleaseType,
+	findOrCreateArtistFolder,
+	type ResolvedRelease,
+	resolveArtistReleases,
+	sanitizeFolderName,
+} from "../folder-resolver.js";
 import { parseBitrate } from "../utils.js";
-import path from "path";
-import fs from "fs";
-import type { GWTrack } from "../deezer/types.js";
 
 export interface DownloadArtistOptions {
 	artistName: string;
@@ -28,7 +40,9 @@ export interface DownloadArtistResult {
 /**
  * Programmatic function to download an artist's discography
  */
-export async function downloadArtist(options: DownloadArtistOptions): Promise<DownloadArtistResult> {
+export async function downloadArtist(
+	options: DownloadArtistOptions,
+): Promise<DownloadArtistResult> {
 	const {
 		artistName,
 		musicRootPath,
@@ -48,7 +62,9 @@ export async function downloadArtist(options: DownloadArtistOptions): Promise<Do
 	// Login (ARL from options, config, or .env)
 	const arl = deezerArl || loadArl();
 	if (!arl) {
-		throw new Error("DEEZER_ARL not found. Provide it via options.deezerArl, setConfig(), or DEEZER_ARL environment variable.");
+		throw new Error(
+			"DEEZER_ARL not found. Provide it via options.deezerArl, setConfig(), or DEEZER_ARL environment variable.",
+		);
 	}
 
 	const loggedIn = await dz.loginViaArl(arl);
@@ -65,7 +81,9 @@ export async function downloadArtist(options: DownloadArtistOptions): Promise<Do
 	const artist = searchResults.data[0];
 
 	// Get discography
-	const discography = await dz.gw.get_artist_discography_tabs(artist.id, { limit: 100 });
+	const discography = await dz.gw.get_artist_discography_tabs(artist.id, {
+		limit: 100,
+	});
 	const allReleases: DiscographyAlbum[] = discography.all || [];
 
 	if (allReleases.length === 0) {
@@ -85,7 +103,7 @@ export async function downloadArtist(options: DownloadArtistOptions): Promise<Do
 		finalMusicRootPath,
 		artist.name,
 		artist.id,
-		allReleases
+		allReleases,
 	);
 
 	const existingReleases = resolvedReleases.filter((r) => r.exists);
@@ -118,10 +136,14 @@ export async function downloadArtist(options: DownloadArtistOptions): Promise<Do
 				releaseType: release.releaseType,
 			});
 
-			const results = await downloader.downloadAlbum(release.album.id, release.album.title);
+			const results = await downloader.downloadAlbum(
+				release.album.id,
+				release.album.title,
+			);
 			allDownloadResults.push(...results);
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
+			const errorMessage =
+				error instanceof Error ? error.message : String(error);
 			// Add error results for all tracks in the release
 			const errorResults: DownloadResult[] = Array.from(
 				{ length: release.album.nb_tracks || 0 },
@@ -130,7 +152,7 @@ export async function downloadArtist(options: DownloadArtistOptions): Promise<Do
 					trackId: 0,
 					trackTitle: `Track ${i + 1}`,
 					error: `Failed to download release: ${errorMessage}`,
-				})
+				}),
 			);
 			allDownloadResults.push(...errorResults);
 		}
@@ -167,7 +189,9 @@ export interface DownloadTrackResult {
 /**
  * Programmatic function to download a specific track/song
  */
-export async function downloadTrack(options: DownloadTrackOptions): Promise<DownloadTrackResult> {
+export async function downloadTrack(
+	options: DownloadTrackOptions,
+): Promise<DownloadTrackResult> {
 	const {
 		trackQuery,
 		artistName,
@@ -188,7 +212,9 @@ export async function downloadTrack(options: DownloadTrackOptions): Promise<Down
 	// Login (ARL from options, config, or .env)
 	const arl = deezerArl || loadArl();
 	if (!arl) {
-		throw new Error("DEEZER_ARL not found. Provide it via options.deezerArl, setConfig(), or DEEZER_ARL environment variable.");
+		throw new Error(
+			"DEEZER_ARL not found. Provide it via options.deezerArl, setConfig(), or DEEZER_ARL environment variable.",
+		);
 	}
 
 	const loggedIn = await dz.loginViaArl(arl);
@@ -206,7 +232,9 @@ export async function downloadTrack(options: DownloadTrackOptions): Promise<Down
 	const tracks = (searchResults.data || []) as APITrack[];
 
 	if (tracks.length === 0) {
-		throw new Error(`No tracks found for "${trackQuery}"${artistName ? ` by ${artistName}` : ""}`);
+		throw new Error(
+			`No tracks found for "${trackQuery}"${artistName ? ` by ${artistName}` : ""}`,
+		);
 	}
 
 	// If artist name provided, try to find a match
@@ -214,7 +242,9 @@ export async function downloadTrack(options: DownloadTrackOptions): Promise<Down
 	if (artistName) {
 		const artistLower = artistName.toLowerCase();
 		const match = tracks.find(
-			(t) => t.artist.name.toLowerCase().includes(artistLower) || artistLower.includes(t.artist.name.toLowerCase())
+			(t) =>
+				t.artist.name.toLowerCase().includes(artistLower) ||
+				artistLower.includes(t.artist.name.toLowerCase()),
 		);
 		if (match) {
 			selectedTrack = match;
@@ -227,8 +257,11 @@ export async function downloadTrack(options: DownloadTrackOptions): Promise<Down
 	// Determine download path
 	const trackArtist = selectedTrack.artist.name;
 	const trackAlbum = selectedTrack.album.title;
-	const artistFolder = findOrCreateArtistFolder(finalMusicRootPath, trackArtist);
-	
+	const artistFolder = findOrCreateArtistFolder(
+		finalMusicRootPath,
+		trackArtist,
+	);
+
 	// Determine release type from album
 	const releaseType = determineReleaseType({
 		record_type: selectedTrack.album.record_type || "album",
@@ -251,7 +284,10 @@ export async function downloadTrack(options: DownloadTrackOptions): Promise<Down
 				success: true,
 				trackId: selectedTrack.id,
 				trackTitle: selectedTrack.title,
-				filePath: path.join(albumFolder, `${String(selectedTrack.track_position || 1).padStart(2, "0")} - ${selectedTrack.title}.flac`),
+				filePath: path.join(
+					albumFolder,
+					`${String(selectedTrack.track_position || 1).padStart(2, "0")} - ${selectedTrack.title}.flac`,
+				),
 			},
 		};
 	}

@@ -1,6 +1,6 @@
-import fs from "fs";
-import path from "path";
-import os from "os";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 export interface Config {
 	musicRootPath: string;
@@ -104,7 +104,11 @@ export function loadConfig(): Config {
 
 	const projectRoot = getProjectRoot();
 	const defaultStatePath = path.join(projectRoot, ".yhdl", "sync-state.json");
-	const defaultErrorLogPath = path.join(projectRoot, ".yhdl", "sync-errors.json");
+	const defaultErrorLogPath = path.join(
+		projectRoot,
+		".yhdl",
+		"sync-errors.json",
+	);
 
 	return {
 		musicRootPath: musicRootPath || DEFAULT_CONFIG.musicRootPath,
@@ -176,14 +180,16 @@ export function saveArl(arl: string): void {
  */
 export function clearArl(): void {
 	const envPath = getEnvPath();
-	
+
 	if (!fs.existsSync(envPath)) {
 		return;
 	}
 
 	const envContent = fs.readFileSync(envPath, "utf-8");
 	const lines = envContent.split("\n");
-	const updatedLines = lines.filter((line) => !line.trim().startsWith("DEEZER_ARL="));
+	const updatedLines = lines.filter(
+		(line) => !line.trim().startsWith("DEEZER_ARL="),
+	);
 
 	// Write back to .env file
 	fs.writeFileSync(envPath, updatedLines.join("\n"), "utf-8");

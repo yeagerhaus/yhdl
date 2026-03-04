@@ -1,4 +1,8 @@
-import type { DiscographyAlbum, EnrichedAPITrack, GWTrack } from "../deezer/types.js";
+import type {
+	DiscographyAlbum,
+	EnrichedAPITrack,
+	GWTrack,
+} from "../deezer/types.js";
 
 export interface TrackDownloadInfo {
 	id: number;
@@ -55,7 +59,10 @@ export interface ReleaseToDownload {
 	skipReason?: string;
 }
 
-export function gwTrackToDownloadInfo(track: GWTrack, albumTitle?: string): TrackDownloadInfo {
+export function gwTrackToDownloadInfo(
+	track: GWTrack,
+	albumTitle?: string,
+): TrackDownloadInfo {
 	return {
 		id: track.SNG_ID,
 		title: track.SNG_TITLE,
@@ -66,7 +73,7 @@ export function gwTrackToDownloadInfo(track: GWTrack, albumTitle?: string): Trac
 		duration: track.DURATION,
 		isrc: track.ISRC,
 		explicit: Boolean(track.EXPLICIT_LYRICS),
-		md5Origin: track.MD5_ORIGIN,
+		md5Origin: Number(track.MD5_ORIGIN) || 0,
 		mediaVersion: track.MEDIA_VERSION,
 		trackToken: track.TRACK_TOKEN,
 		albumCover: `https://e-cdns-images.dzcdn.net/images/cover/${track.ALB_PICTURE}/1000x1000-000000-80-0-0.jpg`,
@@ -76,7 +83,9 @@ export function gwTrackToDownloadInfo(track: GWTrack, albumTitle?: string): Trac
 	};
 }
 
-export function enrichedTrackToDownloadInfo(track: EnrichedAPITrack): TrackDownloadInfo {
+export function enrichedTrackToDownloadInfo(
+	track: EnrichedAPITrack,
+): TrackDownloadInfo {
 	return {
 		id: track.id,
 		title: track.title,
@@ -96,4 +105,3 @@ export function enrichedTrackToDownloadInfo(track: EnrichedAPITrack): TrackDownl
 		gain: track.gain,
 	};
 }
-

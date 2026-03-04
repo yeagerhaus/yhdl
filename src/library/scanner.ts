@@ -1,9 +1,17 @@
-import fs from "fs";
-import path from "path";
+import fs from "node:fs";
+import path from "node:path";
 import NodeID3 from "node-id3";
 import type { LibraryArtist, ScanOptions, ScanProgress } from "./types.js";
 
-const AUDIO_EXTENSIONS = new Set([".mp3", ".flac", ".m4a", ".aac", ".ogg", ".wav", ".wma"]);
+const AUDIO_EXTENSIONS = new Set([
+	".mp3",
+	".flac",
+	".m4a",
+	".aac",
+	".ogg",
+	".wav",
+	".wma",
+]);
 
 /**
  * Normalize artist name for matching (lowercase, trim, remove special chars)
@@ -27,7 +35,9 @@ function isAudioFile(filePath: string): boolean {
 /**
  * Extract artist names from audio file metadata
  */
-export async function extractArtistsFromMetadata(filePath: string): Promise<string[]> {
+export async function extractArtistsFromMetadata(
+	filePath: string,
+): Promise<string[]> {
 	try {
 		const tags = NodeID3.read(filePath);
 		const artists: string[] = [];
@@ -39,7 +49,9 @@ export async function extractArtistsFromMetadata(filePath: string): Promise<stri
 
 		// Album artist (often more accurate for compilations)
 		// Use TPE2 (ID3v2 frame for album artist) or check if albumArtist exists
-		const albumArtist = (tags as Record<string, unknown>).albumArtist || (tags as Record<string, unknown>).TPE2;
+		const albumArtist =
+			(tags as Record<string, unknown>).albumArtist ||
+			(tags as Record<string, unknown>).TPE2;
 		if (albumArtist && typeof albumArtist === "string") {
 			artists.push(albumArtist);
 		}
@@ -53,9 +65,18 @@ export async function extractArtistsFromMetadata(filePath: string): Promise<stri
 						if (!artists.includes(performer)) {
 							artists.push(performer);
 						}
-					} else if (performer && typeof performer === "object" && "performer" in performer) {
-						const performerName = (performer as { performer?: string }).performer;
-						if (performerName && typeof performerName === "string" && !artists.includes(performerName)) {
+					} else if (
+						performer &&
+						typeof performer === "object" &&
+						"performer" in performer
+					) {
+						const performerName = (performer as { performer?: string })
+							.performer;
+						if (
+							performerName &&
+							typeof performerName === "string" &&
+							!artists.includes(performerName)
+						) {
 							artists.push(performerName);
 						}
 					}
@@ -73,7 +94,7 @@ export async function extractArtistsFromMetadata(filePath: string): Promise<stri
 /**
  * Count total directories for progress tracking
  */
-function countDirectories(rootPath: string, maxDepth: number): number {
+function _countDirectories(rootPath: string, maxDepth: number): number {
 	let count = 0;
 	if (!fs.existsSync(rootPath)) {
 		return count;
@@ -106,8 +127,8 @@ function countDirectories(rootPath: string, maxDepth: number): number {
  */
 export function extractArtistsFromFolders(
 	rootPath: string,
-	maxDepth: number = 3,
-	onProgress?: (progress: ScanProgress) => void
+	_maxDepth: number = 3,
+	onProgress?: (progress: ScanProgress) => void,
 ): string[] {
 	const artists: string[] = [];
 	const visited = new Set<string>();
@@ -121,20 +142,27 @@ export function extractArtistsFromFolders(
 	// This is much faster than checking for audio files
 	try {
 		const entries = fs.readdirSync(rootPath, { withFileTypes: true });
-		
+
 		for (const entry of entries) {
 			if (entry.isDirectory()) {
 				const artistName = entry.name;
 				const normalized = normalizeArtistName(artistName);
-				
+
 				// Skip common non-artist folders
-				if (normalized && 
-				    !visited.has(normalized) &&
-				    !["lost+found", "system volume information", "$recycle.bin", ".trash"].includes(normalized.toLowerCase())) {
+				if (
+					normalized &&
+					!visited.has(normalized) &&
+					![
+						"lost+found",
+						"system volume information",
+						"$recycle.bin",
+						".trash",
+					].includes(normalized.toLowerCase())
+				) {
 					artists.push(artistName);
 					visited.add(normalized);
 					directoriesScanned++;
-					
+
 					if (onProgress && artists.length % 10 === 0) {
 						onProgress({
 							artistsFound: artists.length,
@@ -146,7 +174,7 @@ export function extractArtistsFromFolders(
 				}
 			}
 		}
-		
+
 		// Final progress update
 		if (onProgress) {
 			onProgress({
@@ -190,7 +218,7 @@ function countAudioFiles(dir: string): number {
  */
 export async function scanLibrary(
 	rootPath: string,
-	options: ScanOptions = {}
+	options: ScanOptions = {},
 ): Promise<LibraryArtist[]> {
 	const {
 		includeMetadata = true,
@@ -203,7 +231,11 @@ export async function scanLibrary(
 
 	// Method 1: Extract from folder structure (fast)
 	if (includeFolders) {
-		const folderArtists = extractArtistsFromFolders(rootPath, maxDepth, onProgress);
+		const folderArtists = extractArtistsFromFolders(
+			rootPath,
+			maxDepth,
+			onProgress,
+		);
 		for (const artistName of folderArtists) {
 			const normalized = normalizeArtistName(artistName);
 			const artistPath = path.join(rootPath, artistName);
@@ -224,7 +256,7 @@ export async function scanLibrary(
 			rootPath,
 			maxDepth,
 			0,
-			onProgress
+			onProgress,
 		);
 		for (const { artistName, filePath } of metadataArtists) {
 			const normalized = normalizeArtistName(artistName);
@@ -266,7 +298,7 @@ async function extractArtistsFromMetadataRecursive(
 	dir: string,
 	maxDepth: number,
 	currentDepth = 0,
-	onProgress?: (progress: ScanProgress) => void
+	onProgress?: (progress: ScanProgress) => void,
 ): Promise<Array<{ artistName: string; filePath: string }>> {
 	const results: Array<{ artistName: string; filePath: string }> = [];
 	let filesProcessed = 0;
@@ -287,7 +319,7 @@ async function extractArtistsFromMetadataRecursive(
 					results.push({ artistName: artist, filePath: fullPath });
 				}
 				filesProcessed++;
-				
+
 				// Report progress every 50 files
 				if (onProgress && filesProcessed % 50 === 0) {
 					const uniqueArtists = new Set(results.map((r) => r.artistName));
@@ -303,7 +335,7 @@ async function extractArtistsFromMetadataRecursive(
 					fullPath,
 					maxDepth,
 					currentDepth + 1,
-					onProgress
+					onProgress,
 				);
 				results.push(...subResults);
 			}
@@ -314,4 +346,3 @@ async function extractArtistsFromMetadataRecursive(
 
 	return results;
 }
-

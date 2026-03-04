@@ -1,10 +1,11 @@
+import fs from "node:fs";
+import type { Readable, Writable } from "node:stream";
+import { pipeline as streamPipeline } from "node:stream/promises";
 import got from "got";
-import fs from "fs";
-import type { Readable, Writable } from "stream";
-import { pipeline as streamPipeline } from "stream/promises";
-import { generateBlowfishKey, decryptChunk } from "./crypto.js";
+import { decryptChunk, generateBlowfishKey } from "./crypto.js";
 
-const USER_AGENT_HEADER = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36";
+const USER_AGENT_HEADER =
+	"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36";
 
 export interface DownloadProgress {
 	downloaded: number;
@@ -22,30 +23,52 @@ export async function streamTrack(
 	trackTitle: string,
 	onProgress?: ProgressCallback,
 	isCancelled?: () => boolean,
-	retryCount = 0
+	retryCount = 0,
 ): Promise<void> {
 	const MAX_RETRIES = 3;
 	const TRACK_TIMEOUT = 120000; // 2 minutes max per track
-	
+
 	// Wrap entire download in a hard timeout
 	const controller = new AbortController();
 	const hardTimeout = setTimeout(() => controller.abort(), TRACK_TIMEOUT);
-	
+
 	try {
-		await streamTrackInternal(writepath, downloadURL, trackId, trackTitle, onProgress, isCancelled, controller.signal);
+		await streamTrackInternal(
+			writepath,
+			downloadURL,
+			trackId,
+			trackTitle,
+			onProgress,
+			isCancelled,
+			controller.signal,
+		);
 	} catch (e) {
 		const err = e as Error & { code?: string };
-		const isRetryable = 
+		const isRetryable =
 			err.name === "AbortError" ||
 			err.message?.includes("aborted") ||
 			err.message?.includes("timeout") ||
 			err.message?.includes("Timeout") ||
-			["ESOCKETTIMEDOUT", "ERR_STREAM_PREMATURE_CLOSE", "ETIMEDOUT", "ECONNRESET", "ENOTFOUND"].includes(err.code || "");
-		
+			[
+				"ESOCKETTIMEDOUT",
+				"ERR_STREAM_PREMATURE_CLOSE",
+				"ETIMEDOUT",
+				"ECONNRESET",
+				"ENOTFOUND",
+			].includes(err.code || "");
+
 		if (isRetryable && retryCount < MAX_RETRIES) {
-			const delay = Math.min(1000 * Math.pow(2, retryCount), 5000);
+			const delay = Math.min(1000 * 2 ** retryCount, 5000);
 			await new Promise((r) => setTimeout(r, delay));
-			return streamTrack(writepath, downloadURL, trackId, trackTitle, onProgress, isCancelled, retryCount + 1);
+			return streamTrack(
+				writepath,
+				downloadURL,
+				trackId,
+				trackTitle,
+				onProgress,
+				isCancelled,
+				retryCount + 1,
+			);
 		}
 		throw e;
 	} finally {
@@ -60,12 +83,13 @@ async function streamTrackInternal(
 	trackTitle: string,
 	onProgress?: ProgressCallback,
 	isCancelled?: () => boolean,
-	signal?: AbortSignal
+	signal?: AbortSignal,
 ): Promise<void> {
 	const headers = { "User-Agent": USER_AGENT_HEADER };
 	let chunkLength = 0;
 	let complete = 0;
-	const isCryptedStream = downloadURL.includes("/mobile/") || downloadURL.includes("/media/");
+	const isCryptedStream =
+		downloadURL.includes("/mobile/") || downloadURL.includes("/media/");
 	let blowfishKey: string | undefined;
 	const outputStream = fs.createWriteStream(writepath);
 	let inactivityTimeout: NodeJS.Timeout | null = null;
@@ -75,7 +99,9 @@ async function streamTrackInternal(
 		blowfishKey = generateBlowfishKey(String(trackId));
 	}
 
-	async function* decrypter(source: AsyncIterable<Buffer>): AsyncGenerator<Buffer> {
+	async function* decrypter(
+		source: AsyncIterable<Buffer>,
+	): AsyncGenerator<Buffer> {
 		let modifiedStream = Buffer.alloc(0);
 		for await (const chunk of source) {
 			if (!isCryptedStream) {
@@ -87,8 +113,13 @@ async function streamTrackInternal(
 					const decryptingChunks = modifiedStream.subarray(0, 2048 * 3);
 					modifiedStream = modifiedStream.subarray(2048 * 3);
 					if (decryptingChunks.length >= 2048 && blowfishKey) {
-						decryptedChunks = decryptChunk(decryptingChunks.subarray(0, 2048), blowfishKey);
-						decryptedChunks = Buffer.concat([decryptedChunks, decryptingChunks.subarray(2048)]);
+						decryptedChunks = Buffer.from(
+							decryptChunk(decryptingChunks.subarray(0, 2048), blowfishKey),
+						);
+						decryptedChunks = Buffer.concat([
+							decryptedChunks,
+							decryptingChunks.subarray(2048),
+						]);
 					}
 					yield decryptedChunks;
 				}
@@ -97,8 +128,13 @@ async function streamTrackInternal(
 		if (isCryptedStream && blowfishKey) {
 			let decryptedChunks = Buffer.alloc(0);
 			if (modifiedStream.length >= 2048) {
-				decryptedChunks = decryptChunk(modifiedStream.subarray(0, 2048), blowfishKey);
-				decryptedChunks = Buffer.concat([decryptedChunks, modifiedStream.subarray(2048)]);
+				decryptedChunks = Buffer.from(
+					decryptChunk(modifiedStream.subarray(0, 2048), blowfishKey),
+				);
+				decryptedChunks = Buffer.concat([
+					decryptedChunks,
+					modifiedStream.subarray(2048),
+				]);
 				yield decryptedChunks;
 			} else {
 				yield modifiedStream;
@@ -106,10 +142,16 @@ async function streamTrackInternal(
 		}
 	}
 
-	async function* depadder(source: AsyncIterable<Buffer>): AsyncGenerator<Buffer> {
+	async function* depadder(
+		source: AsyncIterable<Buffer>,
+	): AsyncGenerator<Buffer> {
 		let isStart = true;
 		for await (let chunk of source) {
-			if (isStart && chunk[0] === 0 && chunk.subarray(4, 8).toString() !== "ftyp") {
+			if (
+				isStart &&
+				chunk[0] === 0 &&
+				chunk.subarray(4, 8).toString() !== "ftyp"
+			) {
 				let i: number;
 				for (i = 0; i < chunk.length; i++) {
 					if (chunk[i] !== 0) break;
@@ -137,7 +179,7 @@ async function streamTrackInternal(
 
 	request.on("response", (response) => {
 		if (inactivityTimeout) clearTimeout(inactivityTimeout);
-		complete = parseInt(response.headers["content-length"] as string) || 0;
+		complete = parseInt(response.headers["content-length"] as string, 10) || 0;
 		if (complete === 0) {
 			error = "DownloadEmpty";
 			request.destroy();
@@ -177,15 +219,17 @@ async function streamTrackInternal(
 		await streamPipeline(
 			request as unknown as Readable,
 			decrypter as unknown as (source: Readable) => AsyncIterable<Buffer>,
-			depadder as unknown as (source: AsyncIterable<Buffer>) => AsyncIterable<Buffer>,
-			outputStream as Writable
+			depadder as unknown as (
+				source: AsyncIterable<Buffer>,
+			) => AsyncIterable<Buffer>,
+			outputStream as Writable,
 		);
 	} catch (e) {
 		if (inactivityTimeout) clearTimeout(inactivityTimeout);
 		if (fs.existsSync(writepath)) fs.unlinkSync(writepath);
-		
+
 		const err = e as Error & { code?: string };
-		
+
 		// Handle specific error cases
 		if (request.destroyed && error === "DownloadEmpty") {
 			throw new Error("Download returned empty content");
@@ -193,11 +237,10 @@ async function streamTrackInternal(
 		if (request.destroyed && error === "DownloadCanceled") {
 			throw new Error("Download was canceled");
 		}
-		
+
 		// Rethrow with context for retry logic in wrapper
 		throw err;
 	} finally {
 		if (inactivityTimeout) clearTimeout(inactivityTimeout);
 	}
 }
-

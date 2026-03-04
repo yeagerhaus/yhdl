@@ -6,13 +6,13 @@
  * It requires DEEZER_ARL to be set in environment variables or .env file.
  */
 
-import { syncLibrary } from "../sync/sync.js";
-import { loadConfig, loadArl } from "../config.js";
-import { Deezer, TrackFormats } from "../deezer/index.js";
-import { parseBitrate } from "../utils.js";
+import fs from "node:fs";
+import path from "node:path";
 import pc from "picocolors";
-import fs from "fs";
-import path from "path";
+import { loadArl, loadConfig } from "../config.js";
+import { Deezer } from "../deezer/index.js";
+import { syncLibrary } from "../sync/sync.js";
+import { parseBitrate } from "../utils.js";
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -39,12 +39,11 @@ for (let i = 0; i < args.length; i++) {
 	}
 }
 
-
 function log(message: string) {
 	const timestamp = new Date().toISOString();
 	const logMessage = `[${timestamp}] ${message}`;
 	console.log(logMessage);
-	
+
 	if (options.logFile) {
 		try {
 			// Ensure log directory exists
@@ -52,8 +51,8 @@ function log(message: string) {
 			if (!fs.existsSync(logDir)) {
 				fs.mkdirSync(logDir, { recursive: true });
 			}
-			fs.appendFileSync(options.logFile, logMessage + "\n", "utf-8");
-		} catch (error) {
+			fs.appendFileSync(options.logFile, `${logMessage}\n`, "utf-8");
+		} catch (_error) {
 			// Silently fail if log file can't be written
 		}
 	}
@@ -67,7 +66,8 @@ async function main() {
 	const config = loadConfig();
 	const bitrate = parseBitrate(options.bitrate || "flac");
 	const concurrency = parseInt(options.concurrency || "5", 10) || 5;
-	const checkIntervalHours = parseInt(options.checkIntervalHours || "24", 10) || 24;
+	const checkIntervalHours =
+		parseInt(options.checkIntervalHours || "24", 10) || 24;
 
 	log(`Music root path: ${config.musicRootPath}`);
 	log(`Bitrate: ${options.bitrate || "flac"}`);
@@ -78,7 +78,8 @@ async function main() {
 	// Check for ARL
 	const arl = loadArl();
 	if (!arl) {
-		const errorMsg = "ERROR: DEEZER_ARL not found. Please set it in your .env file or environment variables.";
+		const errorMsg =
+			"ERROR: DEEZER_ARL not found. Please set it in your .env file or environment variables.";
 		log(errorMsg);
 		console.error(pc.red(errorMsg));
 		process.exit(1);
@@ -131,9 +132,18 @@ async function main() {
 			log("");
 			log("Downloaded Releases:");
 			for (const release of result.downloadedReleases) {
-				const typeLabel = release.releaseType === "album" ? "Album" : release.releaseType === "ep" ? "EP" : "Single";
-				const dateLabel = release.releaseDate ? ` (${release.releaseDate})` : "";
-				log(`  - ${release.artist} - ${release.release} [${typeLabel}]${dateLabel} (${release.tracks} tracks)`);
+				const typeLabel =
+					release.releaseType === "album"
+						? "Album"
+						: release.releaseType === "ep"
+							? "EP"
+							: "Single";
+				const dateLabel = release.releaseDate
+					? ` (${release.releaseDate})`
+					: "";
+				log(
+					`  - ${release.artist} - ${release.release} [${typeLabel}]${dateLabel} (${release.tracks} tracks)`,
+				);
 			}
 			log("");
 		}
@@ -167,4 +177,3 @@ main().catch((error) => {
 	}
 	process.exit(1);
 });
-

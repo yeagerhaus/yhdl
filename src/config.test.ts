@@ -1,8 +1,15 @@
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import fs from "fs";
-import path from "path";
-import os from "os";
-import { loadConfig, getConfig, setConfig, clearConfig, loadArl, saveArl, clearArl } from "./config.js";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import {
+	clearArl,
+	clearConfig,
+	getConfig,
+	loadArl,
+	loadConfig,
+	setConfig,
+} from "./config.js";
 
 describe("Config", () => {
 	const testEnvPath = path.join(os.tmpdir(), `yhdl-test-${Date.now()}.env`);
@@ -76,7 +83,7 @@ describe("Config", () => {
 	test("saveArl and loadArl work together", () => {
 		const testArl = "saved_arl_token";
 		process.env.DEEZER_ARL = testArl;
-		
+
 		// Note: saveArl writes to .env file, but loadArl reads from process.env
 		// In real usage, Bun loads .env automatically
 		const arl = loadArl();
@@ -164,4 +171,3 @@ describe("Config", () => {
 		});
 	});
 });
-

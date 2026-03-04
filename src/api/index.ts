@@ -1,68 +1,94 @@
 // Library operations
-export { scanLibrary, extractArtistsFromMetadata, extractArtistsFromFolders, normalizeArtistName } from "../library/scanner.js";
-export type { LibraryArtist, ScanOptions } from "../library/types.js";
 
-// Utilities
-export { parseBitrate } from "../utils.js";
-
-// Sync operations
-export { syncLibrary, checkArtist } from "../sync/sync.js";
-export type { SyncOptions, SyncResult, NewRelease } from "../sync/sync.js";
-
-// Download operations
-export { downloadArtist, downloadTrack } from "./download.js";
-export type { DownloadArtistOptions, DownloadArtistResult, DownloadTrackOptions, DownloadTrackResult } from "./download.js";
-export { Downloader } from "../downloader/downloader.js";
-export type { DownloadResult, DownloaderOptions } from "../downloader/downloader.js";
-export type {
-	TrackDownloadInfo,
-	AlbumDownloadInfo,
-	ReleaseToDownload,
-} from "../downloader/types.js";
-export { streamTrack } from "../downloader/decryption.js";
-export type { DownloadProgress, ProgressCallback } from "../downloader/decryption.js";
-export { tagTrack, downloadCover } from "../downloader/tagger.js";
-export type { TagOptions } from "../downloader/tagger.js";
-
-// State management
-export { loadState, saveState, updateArtistCheck, getLastCheck, shouldSkipArtist } from "../sync/state.js";
-export type { SyncState, ArtistState } from "../sync/types.js";
-
-// Logging
-export { loadFailureLog, writeFailureLog, clearFailureLog } from "../sync/logger.js";
-export type { SyncSummary, FailureLogEntry } from "../sync/logger.js";
-
-// Config
-export { loadConfig, getConfig, setConfig, clearConfig, loadArl, saveArl, clearArl, getEnvPathForDisplay } from "../config.js";
 export type { Config } from "../config.js";
-
-// Folder operations
+// Config
 export {
-	resolveArtistReleases,
-	findOrCreateArtistFolder,
-	getExistingReleases,
-	matchReleaseToFolder,
-	createReleaseFolders,
-} from "../folder-resolver.js";
-export type { ResolvedRelease, ReleaseType } from "../folder-resolver.js";
-
+	clearArl,
+	clearConfig,
+	getConfig,
+	getEnvPathForDisplay,
+	loadArl,
+	loadConfig,
+	saveArl,
+	setConfig,
+} from "../config.js";
 // Deezer client
 export { Deezer, TrackFormats } from "../deezer/index.js";
 export type {
-	DiscographyAlbum,
-	APIArtist,
-	User,
-	GWTrack,
-	GWAlbum,
-	GWArtist,
-	APITrack,
 	APIAlbum,
-	EnrichedAPITrack,
+	APIArtist,
+	APIContributor,
+	APIOptions,
+	APITrack,
+	DiscographyAlbum,
 	EnrichedAPIAlbum,
 	EnrichedAPIArtist,
-	APIContributor,
 	EnrichedAPIContributor,
-	APIOptions,
+	EnrichedAPITrack,
+	GWAlbum,
+	GWArtist,
+	GWTrack,
 	SearchOrder,
+	User,
 } from "../deezer/types.js";
+export type {
+	DownloadProgress,
+	ProgressCallback,
+} from "../downloader/decryption.js";
+export { streamTrack } from "../downloader/decryption.js";
+export type { DownloaderOptions } from "../downloader/downloader.js";
+export { Downloader } from "../downloader/downloader.js";
+export type { TagOptions } from "../downloader/tagger.js";
+export { downloadCover, tagTrack } from "../downloader/tagger.js";
+export type {
+	AlbumDownloadInfo,
+	DownloadResult,
+	ReleaseToDownload,
+	TrackDownloadInfo,
+} from "../downloader/types.js";
+export type { ReleaseType, ResolvedRelease } from "../folder-resolver.js";
+// Folder operations
+export {
+	createReleaseFolders,
+	findOrCreateArtistFolder,
+	getExistingReleases,
+	matchReleaseToFolder,
+	resolveArtistReleases,
+} from "../folder-resolver.js";
+export {
+	extractArtistsFromFolders,
+	extractArtistsFromMetadata,
+	normalizeArtistName,
+	scanLibrary,
+} from "../library/scanner.js";
+export type { LibraryArtist, ScanOptions } from "../library/types.js";
+export type { FailureLogEntry, SyncSummary } from "../sync/logger.js";
 
+// Logging
+export {
+	clearFailureLog,
+	loadFailureLog,
+	writeFailureLog,
+} from "../sync/logger.js";
+// State management
+export {
+	getLastCheck,
+	loadState,
+	saveState,
+	shouldSkipArtist,
+	updateArtistCheck,
+} from "../sync/state.js";
+export type { NewRelease, SyncOptions, SyncResult } from "../sync/sync.js";
+// Sync operations
+export { checkArtist, syncLibrary } from "../sync/sync.js";
+export type { ArtistState, SyncState } from "../sync/types.js";
+// Utilities
+export { parseBitrate } from "../utils.js";
+export type {
+	DownloadArtistOptions,
+	DownloadArtistResult,
+	DownloadTrackOptions,
+	DownloadTrackResult,
+} from "./download.js";
+// Download operations
+export { downloadArtist, downloadTrack } from "./download.js";

@@ -1,5 +1,5 @@
-import fs from "fs";
-import path from "path";
+import fs from "node:fs";
+import path from "node:path";
 import type { SyncResult } from "./sync.js";
 
 export interface SyncSummaryFile {
@@ -33,7 +33,7 @@ export interface SyncSummaryFile {
  */
 export function generateSummaryFile(
 	result: SyncResult,
-	outputPath: string
+	outputPath: string,
 ): void {
 	const dir = path.dirname(outputPath);
 	if (!fs.existsSync(dir)) {
@@ -53,4 +53,3 @@ export function generateSummaryFile(
 		console.error(`Error writing summary file: ${error}`);
 	}
 }
-

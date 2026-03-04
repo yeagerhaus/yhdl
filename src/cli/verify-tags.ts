@@ -1,11 +1,11 @@
 #!/usr/bin/env bun
 
-import fs from "fs";
-import path from "path";
-// @ts-expect-error - flac-metadata doesn't have TypeScript types
+import fs from "node:fs";
 import flacMetadata from "flac-metadata";
 
-const filePath = process.argv[2] || "D:/MUSIC/Pincer+/Ugly on the Skin/01 - Ugly on the Skin.flac";
+const filePath =
+	process.argv[2] ||
+	"D:/MUSIC/Pincer+/Ugly on the Skin/01 - Ugly on the Skin.flac";
 
 if (!fs.existsSync(filePath)) {
 	console.error(`File not found: ${filePath}`);
@@ -17,17 +17,17 @@ console.log(`Reading tags from: ${filePath}\n`);
 try {
 	const data = fs.readFileSync(filePath);
 	const processor = new flacMetadata.Processor({ parseMetaDataBlocks: true });
-	
+
 	const tags: Record<string, string> = {};
 	let foundVorbisComment = false;
 
-	processor.on("postprocess", function (mdb: any) {
+	processor.on("postprocess", (mdb: any) => {
 		if (mdb.type === flacMetadata.Processor.MDB_TYPE_VORBIS_COMMENT) {
 			foundVorbisComment = true;
 			console.log("Vorbis Comment Block Found:");
 			console.log(`  Vendor: ${mdb.vendor}`);
 			console.log(`  Comments (${mdb.comments.length}):`);
-			
+
 			for (const comment of mdb.comments) {
 				const [key, ...valueParts] = comment.split("=");
 				const value = valueParts.join("=");
@@ -59,4 +59,3 @@ try {
 	console.error("Error reading file:", error);
 	process.exit(1);
 }
-

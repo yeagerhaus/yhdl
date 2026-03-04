@@ -10,15 +10,17 @@ export interface PlexWebhookOptions {
  * Trigger Plex library scan via webhook
  * This can be used to automatically refresh Plex after downloads complete
  */
-export async function triggerPlexScan(options: PlexWebhookOptions): Promise<boolean> {
+export async function triggerPlexScan(
+	options: PlexWebhookOptions,
+): Promise<boolean> {
 	try {
 		const url = new URL(options.url);
-		
+
 		// Add token if provided
 		if (options.token) {
 			url.searchParams.set("X-Plex-Token", options.token);
 		}
-		
+
 		// Plex webhook format: POST to /library/sections/{section}/refresh
 		// Or use a generic webhook URL that triggers a scan
 		const response = await got.post(url.toString(), {
@@ -29,10 +31,14 @@ export async function triggerPlexScan(options: PlexWebhookOptions): Promise<bool
 				limit: 0, // Don't retry
 			},
 		});
-		
+
 		return response.statusCode >= 200 && response.statusCode < 300;
 	} catch (error) {
-		console.error(pc.dim(`  ⚠ Plex webhook failed: ${error instanceof Error ? error.message : String(error)}`));
+		console.error(
+			pc.dim(
+				`  ⚠ Plex webhook failed: ${error instanceof Error ? error.message : String(error)}`,
+			),
+		);
 		return false;
 	}
 }
@@ -40,7 +46,14 @@ export async function triggerPlexScan(options: PlexWebhookOptions): Promise<bool
 /**
  * Format Plex webhook payload for new releases
  */
-export function formatPlexWebhookPayload(releases: Array<{ artist: string; release: string; releaseDate?: string; tracks: number }>): object {
+export function formatPlexWebhookPayload(
+	releases: Array<{
+		artist: string;
+		release: string;
+		releaseDate?: string;
+		tracks: number;
+	}>,
+): object {
 	return {
 		event: "library.new.content",
 		releases: releases.map((r) => ({
@@ -52,4 +65,3 @@ export function formatPlexWebhookPayload(releases: Array<{ artist: string; relea
 		timestamp: new Date().toISOString(),
 	};
 }
-

@@ -17,7 +17,8 @@ export class Deezer {
 
 	constructor() {
 		this.httpHeaders = {
-			"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36",
+			"User-Agent":
+				"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36",
 		};
 		this.cookieJar = new CookieJar();
 		this.loggedIn = false;
@@ -29,7 +30,7 @@ export class Deezer {
 	}
 
 	async loginViaArl(arl: string, child: string | number = 0): Promise<boolean> {
-		if (child && typeof child === "string") child = parseInt(child);
+		if (child && typeof child === "string") child = parseInt(child, 10);
 
 		// Create cookie
 		const cookie_obj = new Cookie({
@@ -39,7 +40,10 @@ export class Deezer {
 			path: "/",
 			httpOnly: true,
 		});
-		await this.cookieJar.setCookie(cookie_obj.toString(), "https://www.deezer.com");
+		await this.cookieJar.setCookie(
+			cookie_obj.toString(),
+			"https://www.deezer.com",
+		);
 
 		const userData = (await this.gw.get_user_data()) as {
 			USER: {
@@ -62,7 +66,8 @@ export class Deezer {
 		};
 
 		// Check if user logged in
-		if (!userData || Object.keys(userData).length === 0) return (this.loggedIn = false);
+		if (!userData || Object.keys(userData).length === 0)
+			return (this.loggedIn = false);
 		if (userData.USER.USER_ID === 0) return (this.loggedIn = false);
 
 		await this._postLogin(userData);
@@ -95,8 +100,11 @@ export class Deezer {
 			name: userData.USER.BLOG_NAME,
 			picture: userData.USER.USER_PICTURE || "",
 			license_token: userData.USER.OPTIONS.license_token,
-			can_stream_hq: userData.USER.OPTIONS.web_hq || userData.USER.OPTIONS.mobile_hq,
-			can_stream_lossless: userData.USER.OPTIONS.web_lossless || userData.USER.OPTIONS.mobile_lossless,
+			can_stream_hq:
+				userData.USER.OPTIONS.web_hq || userData.USER.OPTIONS.mobile_hq,
+			can_stream_lossless:
+				userData.USER.OPTIONS.web_lossless ||
+				userData.USER.OPTIONS.mobile_lossless,
 			country: userData.USER.OPTIONS.license_country,
 			language: userData.USER.SETTING.global.language || "",
 			loved_tracks: userData.USER.LOVEDTRACKS_ID,
@@ -108,7 +116,9 @@ export class Deezer {
 		this.currentUser = this.childs[child_n];
 		this.selectedAccount = child_n;
 
-		let lang = this.currentUser?.language?.toString().replace(/[^0-9A-Za-z *,-.;=]/g, "");
+		let lang = this.currentUser?.language
+			?.toString()
+			.replace(/[^0-9A-Za-z *,-.;=]/g, "");
 		if (lang?.slice(2, 1) === "-") {
 			lang = lang.slice(0, 5);
 		} else {
@@ -119,7 +129,10 @@ export class Deezer {
 		return [this.currentUser, this.selectedAccount];
 	}
 
-	async get_track_url(track_token: string, format: string): Promise<string | null> {
+	async get_track_url(
+		track_token: string,
+		format: string,
+	): Promise<string | null> {
 		const tracks = await this.get_tracks_url([track_token], format);
 		if (tracks.length > 0) {
 			if (tracks[0] instanceof DeezerError) throw tracks[0];
@@ -128,38 +141,51 @@ export class Deezer {
 		return null;
 	}
 
-	async get_tracks_url(track_tokens: string[], format: string): Promise<(string | DeezerError | null)[]> {
+	async get_tracks_url(
+		track_tokens: string[],
+		format: string,
+	): Promise<(string | DeezerError | null)[]> {
 		if (!Array.isArray(track_tokens)) track_tokens = [track_tokens];
 		if (!this.currentUser?.license_token) {
 			return [];
 		}
 
 		if (
-			((format === "FLAC" || format.startsWith("MP4_RA")) && !this.currentUser.can_stream_lossless) ||
+			((format === "FLAC" || format.startsWith("MP4_RA")) &&
+				!this.currentUser.can_stream_lossless) ||
 			(format === "MP3_320" && !this.currentUser.can_stream_hq)
 		) {
 			throw new WrongLicense(format);
 		}
 
-		let response: { data: { errors?: { code: number; message?: string }[]; media?: { sources: { url: string }[] }[] }[] };
+		let response: {
+			data: {
+				errors?: { code: number; message?: string }[];
+				media?: { sources: { url: string }[] }[];
+			}[];
+		};
 		const result: (DeezerError | string | null)[] = [];
 
 		try {
-			response = await got.post("https://media.deezer.com/v1/get_url", {
-				headers: {
-					...this.httpHeaders,
-					"Accept-Encoding": "gzip, deflate",
-				},
-				cookieJar: this.cookieJar,
-				https: { rejectUnauthorized: false },
-				decompress: true,
-				json: {
-					license_token: this.currentUser.license_token,
-					media: [{ type: "FULL", formats: [{ cipher: "BF_CBC_STRIPE", format }] }],
-					track_tokens,
-				},
-				responseType: "json",
-			}).json();
+			response = await got
+				.post("https://media.deezer.com/v1/get_url", {
+					headers: {
+						...this.httpHeaders,
+						"Accept-Encoding": "gzip, deflate",
+					},
+					cookieJar: this.cookieJar,
+					https: { rejectUnauthorized: false },
+					decompress: true,
+					json: {
+						license_token: this.currentUser.license_token,
+						media: [
+							{ type: "FULL", formats: [{ cipher: "BF_CBC_STRIPE", format }] },
+						],
+						track_tokens,
+					},
+					responseType: "json",
+				})
+				.json();
 		} catch {
 			return [];
 		}
@@ -184,4 +210,3 @@ export class Deezer {
 		return result;
 	}
 }
-

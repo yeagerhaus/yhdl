@@ -1,5 +1,5 @@
-import fs from "fs";
-import path from "path";
+import fs from "node:fs";
+import path from "node:path";
 import type { DiscographyAlbum } from "./deezer/types.js";
 import { normalizeArtistName } from "./library/scanner.js";
 
@@ -17,7 +17,10 @@ export interface ResolvedRelease {
 /**
  * Find an existing artist folder (case-insensitive) or return the path for a new one
  */
-export function findOrCreateArtistFolder(rootPath: string, artistName: string): string {
+export function findOrCreateArtistFolder(
+	rootPath: string,
+	artistName: string,
+): string {
 	// Ensure root exists
 	if (!fs.existsSync(rootPath)) {
 		fs.mkdirSync(rootPath, { recursive: true });
@@ -28,7 +31,10 @@ export function findOrCreateArtistFolder(rootPath: string, artistName: string): 
 
 	// Look for case-insensitive match
 	for (const entry of entries) {
-		if (entry.isDirectory() && entry.name.toLowerCase() === sanitizedName.toLowerCase()) {
+		if (
+			entry.isDirectory() &&
+			entry.name.toLowerCase() === sanitizedName.toLowerCase()
+		) {
 			return path.join(rootPath, entry.name);
 		}
 	}
@@ -60,7 +66,10 @@ export function determineReleaseType(album: DiscographyAlbum): ReleaseType {
  * Build the release folder path
  * Format: "Album Name"
  */
-export function resolveReleaseFolder(artistPath: string, album: DiscographyAlbum): string {
+export function resolveReleaseFolder(
+	artistPath: string,
+	album: DiscographyAlbum,
+): string {
 	const sanitizedTitle = sanitizeFolderName(album.title);
 	const folderName = sanitizedTitle;
 	return path.join(artistPath, folderName);
@@ -77,7 +86,10 @@ export function isAlreadyDownloaded(releasePath: string): boolean {
  * Check if an album is a Various Artists / compilation
  * We check if the artist name matches common compilation artist names
  */
-export function isVariousArtists(album: DiscographyAlbum, artistName: string): boolean {
+export function isVariousArtists(
+	album: DiscographyAlbum,
+	artistName: string,
+): boolean {
 	const compilationNames = [
 		"various artists",
 		"various",
@@ -111,7 +123,7 @@ export function resolveArtistReleases(
 	artistName: string,
 	artistId: number,
 	discography: DiscographyAlbum[],
-	cachedExistingReleases?: string[] | null
+	cachedExistingReleases?: string[] | null,
 ): ResolvedRelease[] {
 	const resolved: ResolvedRelease[] = [];
 	const artistPath = findOrCreateArtistFolder(rootPath, artistName);
@@ -133,14 +145,14 @@ export function resolveArtistReleases(
 
 		const folderPath = resolveReleaseFolder(targetArtistPath, album);
 		const folderName = path.basename(folderPath);
-		
+
 		// Check cache first (faster), then fall back to filesystem check
 		let exists = false;
 		if (cachedSet && targetArtistPath === artistPath) {
 			// Only use cache if we're checking the same artist path
 			exists = cachedSet.has(folderName.toLowerCase().trim());
 		}
-		
+
 		if (!exists) {
 			// Fall back to filesystem check
 			exists = isAlreadyDownloaded(folderPath);
@@ -205,7 +217,7 @@ export function getExistingReleases(artistPath: string): string[] {
  */
 export function matchReleaseToFolder(
 	album: DiscographyAlbum,
-	existingFolders: string[]
+	existingFolders: string[],
 ): string | null {
 	const albumTitle = album.title.toLowerCase().trim();
 	const albumTitleNormalized = normalizeForMatching(albumTitle);
@@ -220,7 +232,9 @@ export function matchReleaseToFolder(
 
 	// Try matching without release type suffix (e.g., "Album Name - Album" matches "Album Name")
 	for (const folder of existingFolders) {
-		const folderWithoutType = folder.replace(/\s*-\s*(Album|EP|Single)$/i, "").trim();
+		const folderWithoutType = folder
+			.replace(/\s*-\s*(Album|EP|Single)$/i, "")
+			.trim();
 		const folderNormalized = normalizeForMatching(folderWithoutType);
 		if (folderNormalized === albumTitleNormalized) {
 			return folder;
@@ -260,4 +274,3 @@ export function sanitizeFolderName(name: string): string {
 		.trim()
 		.slice(0, 200); // Limit length
 }
-

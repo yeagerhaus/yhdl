@@ -1,42 +1,43 @@
-import { Deezer, TrackFormats, type DiscographyAlbum } from "../deezer/index.js";
+import path from "node:path";
+import cliProgress from "cli-progress";
+import pc from "picocolors";
+import {
+	Deezer,
+	type DiscographyAlbum,
+	TrackFormats,
+} from "../deezer/index.js";
 import { Downloader, type DownloadResult } from "../downloader/index.js";
 import {
-	resolveArtistReleases,
 	createReleaseFolders,
 	findOrCreateArtistFolder,
 	getExistingReleases,
 	type ResolvedRelease,
+	resolveArtistReleases,
 } from "../folder-resolver.js";
-import { scanLibrary, normalizeArtistName } from "../library/scanner.js";
+import { normalizeArtistName, scanLibrary } from "../library/scanner.js";
 import type { LibraryArtist, ScanProgress } from "../library/types.js";
 import {
+	logArtistCheck,
+	logArtistCheckError,
+	logSyncComplete,
+	logSyncStart,
+	type SyncSummary,
+	writeFailureLog,
+} from "./logger.js";
+import {
+	cacheArtistReleases,
+	cacheLibraryScan,
+	getCachedArtistReleases,
+	getCachedLibraryScan,
+	isArtistIgnored,
 	loadState,
 	saveState,
+	shouldSkipArtist,
 	updateArtistCheck,
 	updateArtistLastRelease,
-	shouldSkipArtist,
 	updateLastFullSync,
-	cacheLibraryScan,
-	getCachedLibraryScan,
-	cacheArtistReleases,
-	getCachedArtistReleases,
-	isArtistIgnored,
 } from "./state.js";
-import type { SyncState } from "./types.js";
-import {
-	logSyncStart,
-	logArtistCheck,
-	logSyncComplete,
-	logArtistCheckError,
-	logProgress,
-	writeFailureLog,
-	type SyncSummary,
-} from "./logger.js";
 import { generateSummaryFile } from "./summary.js";
-import type { Config } from "../config.js";
-import cliProgress from "cli-progress";
-import pc from "picocolors";
-import path from "path";
 
 /**
  * Format bytes to human-readable string
@@ -46,7 +47,7 @@ function formatBytes(bytes: number): string {
 	const k = 1024;
 	const sizes = ["B", "KB", "MB", "GB"];
 	const i = Math.floor(Math.log(bytes) / Math.log(k));
-	return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
+	return `${Math.round((bytes / k ** i) * 100) / 100} ${sizes[i]}`;
 }
 
 export interface SyncOptions {
@@ -68,7 +69,15 @@ export interface SyncResult {
 	artistsSkipped: number;
 	newReleases: number;
 	downloadResults: DownloadResult[];
-	downloadedReleases: Array<{ artist: string; artistId: number; release: string; releaseId: number; releaseDate?: string; tracks: number; releaseType: string }>;
+	downloadedReleases: Array<{
+		artist: string;
+		artistId: number;
+		release: string;
+		releaseId: number;
+		releaseDate?: string;
+		tracks: number;
+		releaseType: string;
+	}>;
 	errors: Array<{ artist: string; error: string }>;
 }
 
@@ -86,11 +95,13 @@ async function checkArtistForNewReleases(
 	artistName: string,
 	artistId: number,
 	musicRootPath: string,
-	cachedExistingReleases?: string[] | null
+	cachedExistingReleases?: string[] | null,
 ): Promise<{ newReleases: ResolvedRelease[]; error?: string }> {
 	try {
 		// Get discography from Deezer
-		const discography = await dz.gw.get_artist_discography_tabs(artistId, { limit: 100 });
+		const discography = await dz.gw.get_artist_discography_tabs(artistId, {
+			limit: 100,
+		});
 		const allReleases: DiscographyAlbum[] = discography.all || [];
 
 		if (allReleases.length === 0) {
@@ -99,7 +110,13 @@ async function checkArtistForNewReleases(
 
 		// Resolve releases and check which ones exist
 		// If we have cached releases, we can optimize the check
-		const resolved = resolveArtistReleases(musicRootPath, artistName, artistId, allReleases, cachedExistingReleases);
+		const resolved = resolveArtistReleases(
+			musicRootPath,
+			artistName,
+			artistId,
+			allReleases,
+			cachedExistingReleases,
+		);
 		const newReleases = resolved.filter((r) => !r.exists);
 
 		return { newReleases };
@@ -117,11 +134,30 @@ async function downloadRelease(
 	release: ResolvedRelease,
 	bitrate: number,
 	dryRun: boolean,
-	onReleaseStart?: (release: ResolvedRelease, index: number, total: number) => void,
-	onReleaseComplete?: (release: ResolvedRelease, results: DownloadResult[]) => void,
-	onTrackStart?: (track: { title: string; id: number }, index: number, total: number) => void,
-	onTrackProgress?: (progress: { downloaded: number; total: number; trackTitle: string }) => void,
-	onTrackComplete?: (result: DownloadResult, index: number, total: number) => void
+	_onReleaseStart?: (
+		release: ResolvedRelease,
+		index: number,
+		total: number,
+	) => void,
+	onReleaseComplete?: (
+		release: ResolvedRelease,
+		results: DownloadResult[],
+	) => void,
+	onTrackStart?: (
+		track: { title: string; id: number },
+		index: number,
+		total: number,
+	) => void,
+	onTrackProgress?: (progress: {
+		downloaded: number;
+		total: number;
+		trackTitle: string;
+	}) => void,
+	onTrackComplete?: (
+		result: DownloadResult,
+		index: number,
+		total: number,
+	) => void,
 ): Promise<DownloadResult[]> {
 	if (dryRun) {
 		// Return mock results for dry run
@@ -145,7 +181,11 @@ async function downloadRelease(
 		releaseType: release.releaseType,
 		onTrackStart: (trackInfo, index, total) => {
 			if (onTrackStart) {
-				onTrackStart({ title: trackInfo.title, id: trackInfo.id }, index, total);
+				onTrackStart(
+					{ title: trackInfo.title, id: trackInfo.id },
+					index,
+					total,
+				);
 			}
 		},
 		onTrackComplete: (result, index, total) => {
@@ -164,8 +204,11 @@ async function downloadRelease(
 		},
 	});
 
-	const results = await downloader.downloadAlbum(release.album.id, release.album.title);
-	
+	const results = await downloader.downloadAlbum(
+		release.album.id,
+		release.album.title,
+	);
+
 	if (onReleaseComplete) {
 		onReleaseComplete(release, results);
 	}
@@ -179,7 +222,7 @@ async function downloadRelease(
 async function processArtistsBatch<T, R>(
 	items: T[],
 	concurrency: number,
-	processor: (item: T) => Promise<R>
+	processor: (item: T) => Promise<R>,
 ): Promise<R[]> {
 	const results: R[] = [];
 	const executing: Promise<void>[] = [];
@@ -193,10 +236,7 @@ async function processArtistsBatch<T, R>(
 
 		if (executing.length >= concurrency) {
 			await Promise.race(executing);
-			executing.splice(
-				executing.findIndex((p) => p === promise),
-				1
-			);
+			executing.splice(executing.indexOf(promise), 1);
 		}
 	}
 
@@ -207,7 +247,10 @@ async function processArtistsBatch<T, R>(
 /**
  * Find artist ID by name using Deezer search
  */
-async function findArtistId(dz: Deezer, artistName: string): Promise<number | null> {
+async function findArtistId(
+	dz: Deezer,
+	artistName: string,
+): Promise<number | null> {
 	try {
 		const searchResults = await dz.api.search_artist(artistName, { limit: 1 });
 		if (searchResults.data && searchResults.data.length > 0) {
@@ -247,7 +290,9 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 	const { loadArl } = await import("../config.js");
 	const arl = options.deezerArl || loadArl();
 	if (!arl) {
-		throw new Error("DEEZER_ARL not found. Provide it via options.deezerArl, setConfig(), or DEEZER_ARL environment variable.");
+		throw new Error(
+			"DEEZER_ARL not found. Provide it via options.deezerArl, setConfig(), or DEEZER_ARL environment variable.",
+		);
 	}
 
 	const loggedIn = await dz.loginViaArl(arl);
@@ -275,17 +320,21 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 	} else {
 		// Check if we have a cached library scan (valid for 24 hours)
 		const cachedScan = getCachedLibraryScan(state, musicRootPath, 24);
-		
+
 		if (cachedScan && !fullSync) {
 			// Use cached library scan - much faster!
-			console.log(`  Using cached library scan (from ${new Date(cachedScan.lastScanned).toLocaleString()})`);
+			console.log(
+				`  Using cached library scan (from ${new Date(cachedScan.lastScanned).toLocaleString()})`,
+			);
 			libraryArtists = cachedScan.artists.map((a) => ({
 				name: a.name,
 				path: a.path,
 				source: "folder" as const,
 			}));
 			console.log();
-			console.log(`  Found ${libraryArtists.length} artist(s) in library (cached)`);
+			console.log(
+				`  Found ${libraryArtists.length} artist(s) in library (cached)`,
+			);
 			console.log();
 		} else {
 			// Scan entire library with progress bar
@@ -297,7 +346,16 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 
 			// Create progress bar for scanning
 			const scanProgressBar = new cliProgress.SingleBar({
-				format: pc.dim("  │ ") + pc.cyan("{bar}") + pc.dim(" │ ") + pc.white("{percentage}%") + pc.dim(" │ ") + pc.yellow("{value}") + pc.dim(" artists found") + pc.dim(" │ ") + pc.dim("{message}"),
+				format:
+					pc.dim("  │ ") +
+					pc.cyan("{bar}") +
+					pc.dim(" │ ") +
+					pc.white("{percentage}%") +
+					pc.dim(" │ ") +
+					pc.yellow("{value}") +
+					pc.dim(" artists found") +
+					pc.dim(" │ ") +
+					pc.dim("{message}"),
 				barCompleteChar: "█",
 				barIncompleteChar: "░",
 				hideCursor: true,
@@ -305,7 +363,7 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 				barsize: 30,
 			});
 
-			let lastProgress: ScanProgress = {
+			let _lastProgress: ScanProgress = {
 				artistsFound: 0,
 				directoriesScanned: 0,
 				filesProcessed: 0,
@@ -318,10 +376,17 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 				includeMetadata: false, // Skip metadata - folder-based is much faster and sufficient
 				includeFolders: true,
 				onProgress: (progress: ScanProgress) => {
-					lastProgress = progress;
+					_lastProgress = progress;
 					// Simple progress: show artists found, percentage based on directories scanned
 					// Since we're only doing folder scanning, this is fast and we can estimate progress
-					const percentage = Math.min(95, Math.round((progress.directoriesScanned / Math.max(progress.directoriesScanned, 1)) * 90));
+					const percentage = Math.min(
+						95,
+						Math.round(
+							(progress.directoriesScanned /
+								Math.max(progress.directoriesScanned, 1)) *
+								90,
+						),
+					);
 
 					const message = progress.currentPath
 						? path.basename(progress.currentPath).slice(0, 30)
@@ -345,7 +410,7 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 			cacheLibraryScan(
 				state,
 				musicRootPath,
-				libraryArtists.map((a) => ({ name: a.name, path: a.path }))
+				libraryArtists.map((a) => ({ name: a.name, path: a.path })),
 			);
 
 			console.log(`  Found ${libraryArtists.length} artist(s) in library`);
@@ -356,16 +421,28 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 	const totalArtists = libraryArtists.length;
 
 	// Filter out ignored artists
-	const ignoredCount = libraryArtists.filter((a) => isArtistIgnored(state, a.name)).length;
-	const artistsToProcess = libraryArtists.filter((a) => !isArtistIgnored(state, a.name));
+	const ignoredCount = libraryArtists.filter((a) =>
+		isArtistIgnored(state, a.name),
+	).length;
+	const artistsToProcess = libraryArtists.filter(
+		(a) => !isArtistIgnored(state, a.name),
+	);
 	const ignoredArtistsCount = totalArtists - artistsToProcess.length;
 	let checkedArtists = 0;
 	let skippedArtists = 0;
 	let newReleasesCount = 0;
 	const allDownloadResults: DownloadResult[] = [];
 	const errors: Array<{ artist: string; error: string }> = [];
-	const downloadedReleases: Array<{ artist: string; artistId: number; release: string; releaseId: number; releaseDate?: string; tracks: number; releaseType: string }> = [];
-	
+	const downloadedReleases: Array<{
+		artist: string;
+		artistId: number;
+		release: string;
+		releaseId: number;
+		releaseDate?: string;
+		tracks: number;
+		releaseType: string;
+	}> = [];
+
 	if (ignoredCount > 0) {
 		console.log(`  Skipping ${ignoredCount} ignored artist(s)`);
 		console.log();
@@ -375,22 +452,35 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 	let artistProgressBar: cliProgress.SingleBar | null = null;
 	if (artistsToProcess.length > 1) {
 		artistProgressBar = new cliProgress.SingleBar({
-			format: pc.dim("  │ ") + pc.cyan("{bar}") + pc.dim(" │ ") + pc.white("{percentage}%") + pc.dim(" │ ") + pc.yellow("{value}") + pc.dim("/") + pc.yellow("{total}") + pc.dim(" artists") + pc.dim(" │ ") + pc.dim("{message}"),
+			format:
+				pc.dim("  │ ") +
+				pc.cyan("{bar}") +
+				pc.dim(" │ ") +
+				pc.white("{percentage}%") +
+				pc.dim(" │ ") +
+				pc.yellow("{value}") +
+				pc.dim("/") +
+				pc.yellow("{total}") +
+				pc.dim(" artists") +
+				pc.dim(" │ ") +
+				pc.dim("{message}"),
 			barCompleteChar: "█",
 			barIncompleteChar: "░",
 			hideCursor: true,
 			clearOnComplete: false,
 			barsize: 30,
 		});
-		artistProgressBar.start(artistsToProcess.length, 0, { message: "Checking artists..." });
+		artistProgressBar.start(artistsToProcess.length, 0, {
+			message: "Checking artists...",
+		});
 	}
 
 	// Track active downloads for single artist mode
-	let activeReleaseIndex = 0;
+	let _activeReleaseIndex = 0;
 	let activeTrackIndex = 0;
-	let activeTrackTotal = 0;
-	let activeReleaseTitle = "";
-	let activeTrackTitle = "";
+	let _activeTrackTotal = 0;
+	let _activeReleaseTitle = "";
+	let _activeTrackTitle = "";
 	const progressBars: {
 		track: cliProgress.SingleBar | null;
 		release: cliProgress.SingleBar | null;
@@ -400,11 +490,11 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 	};
 
 	// Process artists in batches
-	const artistResults = await processArtistsBatch(
+	const _artistResults = await processArtistsBatch(
 		artistsToProcess,
 		concurrency,
 		async (libraryArtist) => {
-			const normalizedName = normalizeArtistName(libraryArtist.name);
+			const _normalizedName = normalizeArtistName(libraryArtist.name);
 
 			// Find artist ID
 			const artistId = await findArtistId(dz, libraryArtist.name);
@@ -434,12 +524,15 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 				libraryArtist.name,
 				artistId,
 				musicRootPath,
-				cachedReleases
+				cachedReleases,
 			);
-			
+
 			// Cache the existing releases for this artist (if we got them fresh)
 			if (!cachedReleases && !error) {
-				const artistPath = findOrCreateArtistFolder(musicRootPath, libraryArtist.name);
+				const artistPath = findOrCreateArtistFolder(
+					musicRootPath,
+					libraryArtist.name,
+				);
 				const existingFolders = getExistingReleases(artistPath);
 				cacheArtistReleases(state, artistId, existingFolders);
 			}
@@ -477,7 +570,18 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 				if (specificArtist && newReleases.length > 1) {
 					console.log(); // Add spacing before progress bar
 					progressBars.release = new cliProgress.SingleBar({
-						format: pc.dim("  │ ") + pc.magenta("{bar}") + pc.dim(" │ ") + pc.white("{percentage}%") + pc.dim(" │ ") + pc.yellow("{value}") + pc.dim("/") + pc.yellow("{total}") + pc.dim(" releases") + pc.dim(" │ ") + pc.cyan("{message}"),
+						format:
+							pc.dim("  │ ") +
+							pc.magenta("{bar}") +
+							pc.dim(" │ ") +
+							pc.white("{percentage}%") +
+							pc.dim(" │ ") +
+							pc.yellow("{value}") +
+							pc.dim("/") +
+							pc.yellow("{total}") +
+							pc.dim(" releases") +
+							pc.dim(" │ ") +
+							pc.cyan("{message}"),
 						barCompleteChar: "█",
 						barIncompleteChar: "░",
 						hideCursor: true,
@@ -488,11 +592,11 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 				}
 			}
 
-					for (let releaseIdx = 0; releaseIdx < newReleases.length; releaseIdx++) {
+			for (let releaseIdx = 0; releaseIdx < newReleases.length; releaseIdx++) {
 				const release = newReleases[releaseIdx];
 				const currentReleaseIdx = releaseIdx; // Capture for closure
-				activeReleaseIndex = releaseIdx;
-				activeReleaseTitle = release.album.title;
+				_activeReleaseIndex = releaseIdx;
+				_activeReleaseTitle = release.album.title;
 
 				try {
 					// Log release start for single artist mode
@@ -502,7 +606,9 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 						}
 						console.log(pc.cyan(`  📀 Downloading: ${release.album.title}`));
 						if (release.album.release_date) {
-							console.log(pc.dim(`     Release Date: ${release.album.release_date}`));
+							console.log(
+								pc.dim(`     Release Date: ${release.album.release_date}`),
+							);
 						}
 					}
 
@@ -512,10 +618,10 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 						bitrate,
 						dryRun,
 						// onReleaseStart
-						(release, index, total) => {
+						(release, index, _total) => {
 							if (specificArtist) {
-								activeReleaseIndex = index - 1; // Convert to 0-based
-								activeReleaseTitle = release.album.title;
+								_activeReleaseIndex = index - 1; // Convert to 0-based
+								_activeReleaseTitle = release.album.title;
 							}
 						},
 						// onReleaseComplete
@@ -534,15 +640,19 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 							if (specificArtist) {
 								const successCount = results.filter((r) => r.success).length;
 								const failCount = results.filter((r) => !r.success).length;
-								console.log(pc.green(`  ✓ Completed: ${release.album.title} (${successCount} tracks${failCount > 0 ? `, ${failCount} failed` : ""})`));
+								console.log(
+									pc.green(
+										`  ✓ Completed: ${release.album.title} (${successCount} tracks${failCount > 0 ? `, ${failCount} failed` : ""})`,
+									),
+								);
 							}
 						},
 						// onTrackStart
 						(track, index, total) => {
 							activeTrackIndex = index;
-							activeTrackTotal = total;
-							activeTrackTitle = track.title;
-							
+							_activeTrackTotal = total;
+							_activeTrackTitle = track.title;
+
 							if (specificArtist) {
 								// Create track progress bar on first track of release
 								if (index === 1) {
@@ -550,14 +660,27 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 										progressBars.track.stop();
 									}
 									progressBars.track = new cliProgress.SingleBar({
-										format: pc.dim("    │ ") + pc.green("{bar}") + pc.dim(" │ ") + pc.white("{percentage}%") + pc.dim(" │ ") + pc.yellow("{value}") + pc.dim("/") + pc.yellow("{total}") + pc.dim(" tracks") + pc.dim(" │ ") + pc.cyan("{message}"),
+										format:
+											pc.dim("    │ ") +
+											pc.green("{bar}") +
+											pc.dim(" │ ") +
+											pc.white("{percentage}%") +
+											pc.dim(" │ ") +
+											pc.yellow("{value}") +
+											pc.dim("/") +
+											pc.yellow("{total}") +
+											pc.dim(" tracks") +
+											pc.dim(" │ ") +
+											pc.cyan("{message}"),
 										barCompleteChar: "█",
 										barIncompleteChar: "░",
 										hideCursor: true,
 										clearOnComplete: true,
 										barsize: 25,
 									});
-									progressBars.track.start(total, 0, { message: track.title.slice(0, 40) });
+									progressBars.track.start(total, 0, {
+										message: track.title.slice(0, 40),
+									});
 								} else if (progressBars.track) {
 									// Update track number for subsequent tracks
 									progressBars.track.update(index - 1, {
@@ -571,16 +694,17 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 							if (progressBars.track && specificArtist) {
 								// Show download progress for current track in the message
 								// Keep the track number in the bar, show download progress in message
-								const downloadPercent = progress.total > 0 
-									? Math.round((progress.downloaded / progress.total) * 100) 
-									: 0;
+								const downloadPercent =
+									progress.total > 0
+										? Math.round((progress.downloaded / progress.total) * 100)
+										: 0;
 								progressBars.track.update(activeTrackIndex - 1, {
 									message: `${progress.trackTitle.slice(0, 30)} (${downloadPercent}% - ${formatBytes(progress.downloaded)}/${formatBytes(progress.total)})`,
 								});
 							}
 						},
 						// onTrackComplete
-						(result, index, total) => {
+						(result, index, _total) => {
 							activeTrackIndex = index;
 							if (progressBars.track && specificArtist) {
 								// Update progress bar to show completed track (0-based index)
@@ -590,9 +714,13 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 								// Don't stop here - let onReleaseComplete handle it for cleaner output
 							}
 							if (specificArtist && !result.success) {
-								console.log(pc.red(`    ✗ ${result.trackTitle}: ${result.error || "Failed"}`));
+								console.log(
+									pc.red(
+										`    ✗ ${result.trackTitle}: ${result.error || "Failed"}`,
+									),
+								);
 							}
-						}
+						},
 					);
 					allDownloadResults.push(...results);
 
@@ -612,9 +740,13 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 
 					// Update last release date if successful
 					if (release.album.release_date) {
-						updateArtistLastRelease(state, artistId, release.album.release_date);
+						updateArtistLastRelease(
+							state,
+							artistId,
+							release.album.release_date,
+						);
 					}
-					
+
 					// Track successfully downloaded releases
 					const successfulTracks = results.filter((r) => r.success);
 					if (successfulTracks.length > 0) {
@@ -622,14 +754,15 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 							artist: libraryArtist.name,
 							artistId,
 							release: release.album.title,
-							releaseId: release.album.id,
+							releaseId: Number(release.album.id),
 							releaseDate: release.album.release_date,
 							tracks: successfulTracks.length,
 							releaseType: release.releaseType,
 						});
 					}
 				} catch (error) {
-					const errorMessage = error instanceof Error ? error.message : String(error);
+					const errorMessage =
+						error instanceof Error ? error.message : String(error);
 					errors.push({
 						artist: libraryArtist.name,
 						error: `Failed to download ${release.album.title}: ${errorMessage}`,
@@ -644,7 +777,7 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 					});
 				}
 			}
-		}
+		},
 	);
 
 	// Clean up progress bars
@@ -672,22 +805,10 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 	// Save state
 	saveState(statePath, state);
 
-	// Generate summary file if there were downloads
-	if (downloadedReleases.length > 0 || errors.length > 0) {
-		const summaryPath = path.join(path.dirname(statePath), "sync-summary.json");
-		generateSummaryFile({
-			summary,
-			artistsChecked: checkedArtists,
-			artistsSkipped: skippedArtists,
-			newReleases: newReleasesCount,
-			downloadResults: allDownloadResults,
-			downloadedReleases,
-			errors,
-		}, summaryPath);
-	}
-
-	// Calculate summary
-	const successfulDownloads = allDownloadResults.filter((r) => r.success).length;
+	// Calculate summary before generating summary file
+	const successfulDownloads = allDownloadResults.filter(
+		(r) => r.success,
+	).length;
 	const failedDownloads = allDownloadResults.filter((r) => !r.success).length;
 	const duration = Date.now() - startTime;
 
@@ -700,6 +821,23 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 		failedTracks: failedDownloads,
 		duration,
 	};
+
+	// Generate summary file if there were downloads
+	if (downloadedReleases.length > 0 || errors.length > 0) {
+		const summaryPath = path.join(path.dirname(statePath), "sync-summary.json");
+		generateSummaryFile(
+			{
+				summary,
+				artistsChecked: checkedArtists,
+				artistsSkipped: skippedArtists,
+				newReleases: newReleasesCount,
+				downloadResults: allDownloadResults,
+				downloadedReleases,
+				errors,
+			},
+			summaryPath,
+		);
+	}
 
 	logSyncComplete(summary, downloadedReleases);
 
@@ -721,9 +859,13 @@ export async function checkArtist(
 	dz: Deezer,
 	artistName: string,
 	artistId: number,
-	musicRootPath: string
+	musicRootPath: string,
 ): Promise<ResolvedRelease[]> {
-	const { newReleases } = await checkArtistForNewReleases(dz, artistName, artistId, musicRootPath);
+	const { newReleases } = await checkArtistForNewReleases(
+		dz,
+		artistName,
+		artistId,
+		musicRootPath,
+	);
 	return newReleases;
 }
-

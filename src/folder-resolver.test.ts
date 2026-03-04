@@ -1,17 +1,17 @@
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import fs from "fs";
-import path from "path";
-import os from "os";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import type { DiscographyAlbum } from "./deezer/types.js";
 import {
-	findOrCreateArtistFolder,
 	determineReleaseType,
-	resolveReleaseFolder,
+	findOrCreateArtistFolder,
+	getExistingReleases,
 	isAlreadyDownloaded,
 	isVariousArtists,
-	getExistingReleases,
 	matchReleaseToFolder,
+	resolveReleaseFolder,
 } from "./folder-resolver.js";
-import type { DiscographyAlbum } from "./deezer/types.js";
 
 describe("Folder Resolver", () => {
 	const testRoot = path.join(os.tmpdir(), `yhdl-test-${Date.now()}`);
@@ -122,7 +122,11 @@ describe("Folder Resolver", () => {
 	});
 
 	test("isAlreadyDownloaded returns false for non-existent folder", () => {
-		const nonExistentPath = path.join(testRoot, "NonExistent", "Release - Album");
+		const nonExistentPath = path.join(
+			testRoot,
+			"NonExistent",
+			"Release - Album",
+		);
 		expect(isAlreadyDownloaded(nonExistentPath)).toBe(false);
 	});
 
@@ -256,4 +260,3 @@ describe("Folder Resolver", () => {
 		expect(matchReleaseToFolder(album, folders)).toBeNull();
 	});
 });
-

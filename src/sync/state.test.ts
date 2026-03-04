@@ -1,20 +1,23 @@
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import fs from "fs";
-import path from "path";
-import os from "os";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import {
+	getAllArtistIds,
+	getLastCheck,
 	loadState,
 	saveState,
-	updateArtistCheck,
-	getLastCheck,
 	shouldSkipArtist,
-	getAllArtistIds,
+	updateArtistCheck,
 	updateLastFullSync,
 } from "./state.js";
 import type { SyncState } from "./types.js";
 
 describe("Sync State", () => {
-	const testStatePath = path.join(os.tmpdir(), `yhdl-state-test-${Date.now()}.json`);
+	const testStatePath = path.join(
+		os.tmpdir(),
+		`yhdl-state-test-${Date.now()}.json`,
+	);
 
 	beforeEach(() => {
 		if (fs.existsSync(testStatePath)) {
@@ -139,9 +142,21 @@ describe("Sync State", () => {
 	test("getAllArtistIds returns all artist IDs", () => {
 		const state: SyncState = {
 			artists: {
-				1: { name: "Artist 1", lastChecked: new Date().toISOString(), deezerId: 1 },
-				2: { name: "Artist 2", lastChecked: new Date().toISOString(), deezerId: 2 },
-				3: { name: "Artist 3", lastChecked: new Date().toISOString(), deezerId: 3 },
+				1: {
+					name: "Artist 1",
+					lastChecked: new Date().toISOString(),
+					deezerId: 1,
+				},
+				2: {
+					name: "Artist 2",
+					lastChecked: new Date().toISOString(),
+					deezerId: 2,
+				},
+				3: {
+					name: "Artist 3",
+					lastChecked: new Date().toISOString(),
+					deezerId: 3,
+				},
 			},
 			version: "1.0.0",
 		};
@@ -165,4 +180,3 @@ describe("Sync State", () => {
 		expect(state.lastFullSync).toBe(syncTime.toISOString());
 	});
 });
-

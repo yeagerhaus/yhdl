@@ -21,4 +21,3 @@ export interface ScanOptions {
 	maxDepth?: number;
 	onProgress?: ScanProgressCallback;
 }
-

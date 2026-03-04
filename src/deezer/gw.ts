@@ -28,7 +28,11 @@ export class GW {
 		this.api_token = null;
 	}
 
-	async api_call(method: string, args: Record<string, unknown> = {}, params: Record<string, unknown> = {}): Promise<unknown> {
+	async api_call(
+		method: string,
+		args: Record<string, unknown> = {},
+		params: Record<string, unknown> = {},
+	): Promise<unknown> {
 		if (!this.api_token && method !== "deezer.getUserData") {
 			this.api_token = await this._get_token();
 		}
@@ -41,7 +45,11 @@ export class GW {
 			...params,
 		};
 
-		let result_json: { error: unknown; results: unknown; payload?: { FALLBACK?: Record<string, unknown> } };
+		let result_json: {
+			error: unknown;
+			results: unknown;
+			payload?: { FALLBACK?: Record<string, unknown> };
+		};
 		try {
 			result_json = await got
 				.post("http://www.deezer.com/ajax/gw-light.php", {
@@ -54,18 +62,40 @@ export class GW {
 				.json();
 		} catch (e) {
 			const error = e as Error & { code?: string };
-			console.error("[ERROR] deezer.gw", method, args, error.name, error.message);
-			if (["ECONNABORTED", "ECONNREFUSED", "ECONNRESET", "ENETRESET", "ETIMEDOUT"].includes(error.code || "")) {
+			console.error(
+				"[ERROR] deezer.gw",
+				method,
+				args,
+				error.name,
+				error.message,
+			);
+			if (
+				[
+					"ECONNABORTED",
+					"ECONNREFUSED",
+					"ECONNRESET",
+					"ENETRESET",
+					"ETIMEDOUT",
+				].includes(error.code || "")
+			) {
 				await new Promise((resolve) => setTimeout(resolve, 2000));
 				return this.api_call(method, args, params);
 			}
-			throw new GWAPIError(`${method} ${JSON.stringify(args)}:: ${error.name}: ${error.message}`);
+			throw new GWAPIError(
+				`${method} ${JSON.stringify(args)}:: ${error.name}: ${error.message}`,
+			);
 		}
 
 		const errorObj = result_json.error as Record<string, unknown> | unknown[];
-		if ((Array.isArray(errorObj) && errorObj.length) || Object.keys(errorObj).length) {
+		if (
+			(Array.isArray(errorObj) && errorObj.length) ||
+			Object.keys(errorObj).length
+		) {
 			const errorStr = JSON.stringify(result_json.error);
-			if (errorStr === '{"GATEWAY_ERROR":"invalid api token"}' || errorStr === '{"VALID_TOKEN_REQUIRED":"Invalid CSRF token"}') {
+			if (
+				errorStr === '{"GATEWAY_ERROR":"invalid api token"}' ||
+				errorStr === '{"VALID_TOKEN_REQUIRED":"Invalid CSRF token"}'
+			) {
 				this.api_token = await this._get_token();
 				return this.api_call(method, args, params);
 			}
@@ -94,15 +124,25 @@ export class GW {
 
 	// ===== Tracks =====
 	async getTrack(sng_id: string | number): Promise<GWTrack> {
-		return this.api_call("song.getData", { SNG_ID: sng_id }) as Promise<GWTrack>;
+		return this.api_call("song.getData", {
+			SNG_ID: sng_id,
+		}) as Promise<GWTrack>;
 	}
 
-	async get_track_page(sng_id: string | number): Promise<{ DATA: GWTrack; LYRICS?: unknown; ISRC?: unknown }> {
-		return this.api_call("deezer.pageTrack", { SNG_ID: sng_id }) as Promise<{ DATA: GWTrack; LYRICS?: unknown; ISRC?: unknown }>;
+	async get_track_page(
+		sng_id: string | number,
+	): Promise<{ DATA: GWTrack; LYRICS?: unknown; ISRC?: unknown }> {
+		return this.api_call("deezer.pageTrack", { SNG_ID: sng_id }) as Promise<{
+			DATA: GWTrack;
+			LYRICS?: unknown;
+			ISRC?: unknown;
+		}>;
 	}
 
 	async get_tracks(sng_ids: (string | number)[]): Promise<GWTrack[]> {
-		const body = (await this.api_call("song.getListData", { SNG_IDS: sng_ids })) as { data: GWTrack[] };
+		const body = (await this.api_call("song.getListData", {
+			SNG_IDS: sng_ids,
+		})) as { data: GWTrack[] };
 		const tracks_array: GWTrack[] = [];
 		let errors = 0;
 		for (let i = 0; i < sng_ids.length; i++) {
@@ -118,7 +158,7 @@ export class GW {
 
 	async get_track_with_fallback(sng_id: string | number): Promise<GWTrack> {
 		let body: { DATA: GWTrack; LYRICS?: unknown; ISRC?: unknown } | null = null;
-		if (parseInt(String(sng_id)) > 0) {
+		if (parseInt(String(sng_id), 10) > 0) {
 			try {
 				body = await this.get_track_page(sng_id);
 			} catch {
@@ -127,8 +167,11 @@ export class GW {
 		}
 
 		if (body) {
-			if (body.LYRICS) (body.DATA as Record<string, unknown>).LYRICS = body.LYRICS;
-			if (body.ISRC) (body.DATA as Record<string, unknown>).ALBUM_FALLBACK = body.ISRC;
+			if (body.LYRICS)
+				(body.DATA as unknown as Record<string, unknown>).LYRICS = body.LYRICS;
+			if (body.ISRC)
+				(body.DATA as unknown as Record<string, unknown>).ALBUM_FALLBACK =
+					body.ISRC;
 			return body.DATA;
 		}
 		return this.getTrack(sng_id);
@@ -139,18 +182,29 @@ export class GW {
 		return this.api_call("album.getData", { ALB_ID: alb_id });
 	}
 
-	async get_album_page(alb_id: string | number): Promise<{ DATA: Record<string, unknown>; SONGS: { data: GWTrack[] } }> {
+	async get_album_page(
+		alb_id: string | number,
+	): Promise<{ DATA: Record<string, unknown>; SONGS: { data: GWTrack[] } }> {
 		return this.api_call("deezer.pageAlbum", {
 			ALB_ID: alb_id,
 			lang: "en",
 			header: true,
 			tab: 0,
-		}) as Promise<{ DATA: Record<string, unknown>; SONGS: { data: GWTrack[] } }>;
+		}) as Promise<{
+			DATA: Record<string, unknown>;
+			SONGS: { data: GWTrack[] };
+		}>;
 	}
 
 	async get_album_tracks(alb_id: string | number): Promise<GWTrack[]> {
-		const body = (await this.api_call("song.getListByAlbum", { ALB_ID: alb_id, nb: -1 })) as { data: GWTrack[] };
-		return body.data.map((track, idx) => ({ ...track, POSITION: idx })) as unknown as GWTrack[];
+		const body = (await this.api_call("song.getListByAlbum", {
+			ALB_ID: alb_id,
+			nb: -1,
+		})) as { data: GWTrack[] };
+		return body.data.map((track, idx) => ({
+			...track,
+			POSITION: idx,
+		})) as unknown as GWTrack[];
 	}
 
 	// ===== Artists =====
@@ -158,7 +212,10 @@ export class GW {
 		return this.api_call("artist.getData", { ART_ID: art_id });
 	}
 
-	async get_artist_discography(art_id: string | number, options: APIOptions = {}): Promise<{ data: unknown[]; total: number }> {
+	async get_artist_discography(
+		art_id: string | number,
+		options: APIOptions = {},
+	): Promise<{ data: unknown[]; total: number }> {
 		const index = options.index || 0;
 		const limit = options.limit || 25;
 		return this.api_call("album.getDiscography", {
@@ -170,11 +227,18 @@ export class GW {
 		}) as Promise<{ data: unknown[]; total: number }>;
 	}
 
-	async get_artist_discography_tabs(art_id: string | number, options: APIOptions = {}): Promise<Record<string, DiscographyAlbum[]>> {
+	async get_artist_discography_tabs(
+		art_id: string | number,
+		options: APIOptions = {},
+	): Promise<Record<string, DiscographyAlbum[]>> {
 		const limit = options.limit || 100;
 		let index = 0;
 		let releases: Record<string, unknown>[] = [];
-		const result: Record<string, DiscographyAlbum[]> = { all: [], featured: [], more: [] };
+		const result: Record<string, DiscographyAlbum[]> = {
+			all: [],
+			featured: [],
+			more: [],
+		};
 		const ids: string[] = [];
 
 		// Get all releases with pagination
@@ -196,7 +260,11 @@ export class GW {
 				const roleId = release.ROLE_ID as number;
 				const isOfficial = release.ARTISTS_ALBUMS_IS_OFFICIAL as boolean;
 
-				if ((releaseArtId === artId || (releaseArtId !== artId && roleId === 0)) && isOfficial) {
+				if (
+					(releaseArtId === artId ||
+						(releaseArtId !== artId && roleId === 0)) &&
+					isOfficial
+				) {
 					// Handle all base record types
 					if (!result[obj.record_type]) result[obj.record_type] = [];
 					result[obj.record_type].push(obj);
@@ -217,10 +285,18 @@ export class GW {
 		return result;
 	}
 
-	async get_artist_top_tracks(art_id: string | number, options: APIOptions = {}): Promise<GWTrack[]> {
+	async get_artist_top_tracks(
+		art_id: string | number,
+		options: APIOptions = {},
+	): Promise<GWTrack[]> {
 		const limit = options.limit || 100;
-		const body = (await this.api_call("artist.getTopTrack", { ART_ID: art_id, nb: limit })) as { data: GWTrack[] };
-		return body.data.map((track, idx) => ({ ...track, POSITION: idx })) as unknown as GWTrack[];
+		const body = (await this.api_call("artist.getTopTrack", {
+			ART_ID: art_id,
+			nb: limit,
+		})) as { data: GWTrack[] };
+		return body.data.map((track, idx) => ({
+			...track,
+			POSITION: idx,
+		})) as unknown as GWTrack[];
 	}
 }
-

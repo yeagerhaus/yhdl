@@ -1,8 +1,8 @@
 import type {
+	DiscographyAlbum,
 	EnrichedAPIContributor,
 	EnrichedAPITrack,
 	GWTrack,
-	DiscographyAlbum,
 } from "./types.js";
 
 // Explicit Content Lyrics status values
@@ -22,12 +22,14 @@ export const RoleID = ["Main", null, null, null, null, "Featured"];
 
 export function is_explicit(explicit_content_lyrics: unknown): boolean {
 	return [LyricsStatus.EXPLICIT, LyricsStatus.PARTIALLY_EXPLICIT].includes(
-		parseInt(String(explicit_content_lyrics)) || LyricsStatus.UNKNOWN
+		parseInt(String(explicit_content_lyrics), 10) || LyricsStatus.UNKNOWN,
 	);
 }
 
 // Maps GW API album from discography to standard format
-export function map_artist_album(album: Record<string, unknown>): DiscographyAlbum {
+export function map_artist_album(
+	album: Record<string, unknown>,
+): DiscographyAlbum {
 	return {
 		id: album.ALB_ID as string,
 		title: album.ALB_TITLE as string,
@@ -40,7 +42,7 @@ export function map_artist_album(album: Record<string, unknown>): DiscographyAlb
 		md5_image: album.ALB_PICTURE as string,
 		genre_id: album.GENRE_ID as number | undefined,
 		release_date: album.PHYSICAL_RELEASE_DATE as string | undefined,
-		record_type: ReleaseType[parseInt(album.TYPE as string)] || "unknown",
+		record_type: ReleaseType[parseInt(album.TYPE as string, 10)] || "unknown",
 		tracklist: `https://api.deezer.com/album/${album.ALB_ID}/tracks`,
 		explicit_lyrics: is_explicit(album.EXPLICIT_LYRICS),
 		nb_tracks: album.NUMBER_TRACK as number,
@@ -90,7 +92,7 @@ export function mapGwTrackToDeezer(track: GWTrack): EnrichedAPITrack {
 			type: "album",
 		},
 		type: "track",
-		md5_origin: track.MD5_ORIGIN,
+		md5_origin: Number(track.MD5_ORIGIN) || 0,
 		filesizes: {
 			default: track.FILESIZE,
 		},
@@ -171,23 +173,25 @@ export function mapGwTrackToDeezer(track: GWTrack): EnrichedAPITrack {
 	};
 
 	if (track.ARTISTS) {
-		const contributors: EnrichedAPIContributor[] = track.ARTISTS.map((contributor) => ({
-			id: contributor.ART_ID,
-			name: contributor.ART_NAME,
-			link: `https://www.deezer.com/artist/${contributor.ART_ID}`,
-			share: `https://www.deezer.com/artist/${contributor.ART_ID}`,
-			picture: `https://www.deezer.com/artist/${contributor.ART_ID}/image`,
-			picture_small: `https://e-cdns-images.dzcdn.net/images/artist/${contributor.ART_PICTURE}/56x56-000000-80-0-0.jpg`,
-			picture_medium: `https://e-cdns-images.dzcdn.net/images/artist/${contributor.ART_PICTURE}/250x250-000000-80-0-0.jpg`,
-			picture_big: `https://e-cdns-images.dzcdn.net/images/artist/${contributor.ART_PICTURE}/500x500-000000-80-0-0.jpg`,
-			picture_xl: `https://e-cdns-images.dzcdn.net/images/artist/${contributor.ART_PICTURE}/1000x1000-000000-80-0-0.jpg`,
-			md5_image: contributor.ART_PICTURE || "",
-			tracklist: `https://api.deezer.com/artist/${contributor.ART_ID}/top?limit=50`,
-			type: "artist",
-			role: RoleID[contributor.ROLE_ID] ?? null,
-			order: String(contributor.ARTISTS_SONGS_ORDER || 0),
-			rank: contributor.RANK || 0,
-		}));
+		const contributors: EnrichedAPIContributor[] = track.ARTISTS.map(
+			(contributor) => ({
+				id: contributor.ART_ID,
+				name: contributor.ART_NAME,
+				link: `https://www.deezer.com/artist/${contributor.ART_ID}`,
+				share: `https://www.deezer.com/artist/${contributor.ART_ID}`,
+				picture: `https://www.deezer.com/artist/${contributor.ART_ID}/image`,
+				picture_small: `https://e-cdns-images.dzcdn.net/images/artist/${contributor.ART_PICTURE}/56x56-000000-80-0-0.jpg`,
+				picture_medium: `https://e-cdns-images.dzcdn.net/images/artist/${contributor.ART_PICTURE}/250x250-000000-80-0-0.jpg`,
+				picture_big: `https://e-cdns-images.dzcdn.net/images/artist/${contributor.ART_PICTURE}/500x500-000000-80-0-0.jpg`,
+				picture_xl: `https://e-cdns-images.dzcdn.net/images/artist/${contributor.ART_PICTURE}/1000x1000-000000-80-0-0.jpg`,
+				md5_image: contributor.ART_PICTURE || "",
+				tracklist: `https://api.deezer.com/artist/${contributor.ART_ID}/top?limit=50`,
+				type: "artist",
+				role: RoleID[contributor.ROLE_ID] ?? null,
+				order: String(contributor.ARTISTS_SONGS_ORDER || 0),
+				rank: contributor.RANK || 0,
+			}),
+		);
 
 		const mainArtist = contributors.find((c) => c.id === baseResult.artist?.id);
 		if (mainArtist && baseResult.artist) {
@@ -210,4 +214,3 @@ export function mapGwTrackToDeezer(track: GWTrack): EnrichedAPITrack {
 		filesizes,
 	} as EnrichedAPITrack;
 }
-
