@@ -1,13 +1,6 @@
 name: Publish to GitHub Packages
 
 on:
-  push:
-    branches:
-      - main
-      - master
-    # Only trigger on version changes (when package.json version is updated)
-    paths:
-      - 'package.json'
   release:
     types: [created]
   workflow_dispatch: # Allow manual triggering
@@ -18,6 +11,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
 
     steps:
       - name: Checkout repository
@@ -34,18 +28,21 @@ jobs:
       - name: Build package
         run: bun run build
 
+      - name: Setup Node for npm publish
+        uses: actions/setup-node@v4
+        with:
+          registry-url: 'https://registry.npmjs.org'
+
       - name: Publish to npm
         run: |
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           PUBLISHED=$(npm view yhdl version 2>/dev/null || echo "none")
           if [ "$CURRENT_VERSION" != "$PUBLISHED" ]; then
             echo "Publishing yhdl@$CURRENT_VERSION to npm..."
-            npm publish --access public
+            npm publish --access public --provenance
           else
             echo "yhdl@$CURRENT_VERSION already published, skipping."
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Configure package.json for GitHub Packages
         run: |

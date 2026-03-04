@@ -48,7 +48,7 @@
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/YOUR_USERNAME/yhdl.git"
+		"url": "https://github.com/yeagerhaus/yhdl"
 	},
 	"engines": {
 		"bun": ">=1.0.0"
