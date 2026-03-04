@@ -12,6 +12,7 @@ export function parseBitrate(bitrate: number | string | undefined): number {
 		switch (bitrate.toLowerCase()) {
 			case "flac":
 				return TrackFormats.FLAC;
+			case "mp3":
 			case "320":
 			case "mp3_320":
 				return TrackFormats.MP3_320;

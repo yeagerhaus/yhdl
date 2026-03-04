@@ -1,21 +1,21 @@
 /* eslint-disable */
-!((r, e) => {
-	"object" === typeof exports && "undefined" !== typeof module
+!(function (r, e) {
+	"object" == typeof exports && "undefined" != typeof module
 		? (module.exports = e())
-		: "function" === typeof define && define.amd
+		: "function" == typeof define && define.amd
 			? define(e)
 			: ((r =
-					"undefined" !== typeof globalThis ? globalThis : r || self).Blowfish =
+					"undefined" != typeof globalThis ? globalThis : r || self).Blowfish =
 					e());
-})(this, () => {
+})(this, function () {
 	"use strict";
-	function _i(r, e) {
+	function i(r, e) {
 		for (var t = 0; t < e.length; t++) {
 			var n = e[t];
-			(n.enumerable = n.enumerable || !1),
+			((n.enumerable = n.enumerable || !1),
 				(n.configurable = !0),
 				"value" in n && (n.writable = !0),
-				Object.defineProperty(r, n.key, n);
+				Object.defineProperty(r, n.key, n));
 		}
 	}
 	var d = { ECB: 0, CBC: 1 },
@@ -212,7 +212,7 @@
 	function B(r, e) {
 		return s(r ^ e);
 	}
-	function _h(r, e) {
+	function h(r, e) {
 		return s((r + e) | 0);
 	}
 	function E(r, e, t, n) {
@@ -222,10 +222,10 @@
 		return [(r >>> 24) & 255, (r >>> 16) & 255, (r >>> 8) & 255, 255 & r];
 	}
 	function e(r) {
-		return "string" === typeof r;
+		return "string" == typeof r;
 	}
 	function t(r) {
-		return "object" === typeof r && "byteLength" in r;
+		return "object" == typeof r && "byteLength" in r;
 	}
 	function b(r) {
 		return e(r) || t(r);
@@ -233,7 +233,7 @@
 	function _(e, t) {
 		var n = !1;
 		return (
-			Object.keys(e).forEach((r) => {
+			Object.keys(e).forEach(function (r) {
 				e[r] === t && (n = !0);
 			}),
 			n
@@ -241,7 +241,7 @@
 	}
 	function A(r) {
 		if (e(r))
-			return ((r) => {
+			return (function (r) {
 				for (
 					var e = new Uint8Array(4 * r.length), t = 0, n = 0;
 					n !== r.length;
@@ -255,7 +255,8 @@
 							if (55295 < i && i < 56320) {
 								if (++n >= r.length)
 									return (
-										console.error("Incomplete surrogate pair"), e.subarray(0, t)
+										console.error("Incomplete surrogate pair"),
+										e.subarray(0, t)
 									);
 								var o = r.charCodeAt(n);
 								if (o < 56320 || 57343 < o)
@@ -265,13 +266,13 @@
 												o.toString(16) +
 												" at index " +
 												n +
-												" out of range",
+												" out of range"
 										),
 										e.subarray(0, t)
 									);
-								(e[t++] =
+								((e[t++] =
 									((i = 65536 + ((1023 & i) << 10) + (1023 & o)) >> 18) | 240),
-									(e[t++] = ((i >> 12) & 63) | 128);
+									(e[t++] = ((i >> 12) & 63) | 128));
 							} else e[t++] = (i >> 12) | 224;
 							e[t++] = ((i >> 6) & 63) | 128;
 						}
@@ -283,42 +284,42 @@
 		if (t(r)) return new Uint8Array(r);
 		throw new Error("Unsupported type");
 	}
-	return (() => {
+	return (function () {
 		function r(r, e, t) {
 			if ((void 0 === e && (e = d.ECB), void 0 === t && (t = v.PKCS5), !b(r)))
 				throw new Error("Key should be a string or an ArrayBuffer / Buffer");
 			if (!_(d, e)) throw new Error("Unsupported mode");
 			if (!_(v, t)) throw new Error("Unsupported padding");
-			(this.mode = e),
+			((this.mode = e),
 				(this.padding = t),
 				(this.iv = null),
 				(this.p = p.slice()),
 				(this.s = [g.slice(), y.slice(), C.slice(), w.slice()]),
-				(r = ((r) => {
+				(r = (function (r) {
 					if (72 <= r.length) return r;
 					for (var e = []; e.length < 72; )
 						for (var t = 0; t < r.length; t++) e.push(r[t]);
 					return new Uint8Array(e);
-				})(A(r)));
+				})(A(r))));
 			for (var n = 0, i = 0; n < 18; n++, i += 4) {
 				var o = E(r[i], r[i + 1], r[i + 2], r[i + 3]);
 				this.p[n] = B(this.p[n], o);
 			}
-			for (var _s = 0, h = 0, f = 0; f < 18; f += 2) {
+			for (var s = 0, h = 0, f = 0; f < 18; f += 2) {
 				var u = this._encryptBlock(s, h),
 					s = u[0],
 					h = u[1];
-				(this.p[f] = s), (this.p[f + 1] = h);
+				((this.p[f] = s), (this.p[f + 1] = h));
 			}
 			for (var a = 0; a < 4; a++)
 				for (var c = 0; c < 256; c += 2) {
 					var l = this._encryptBlock(s, h);
-					(s = l[0]), (h = l[1]), (this.s[a][c] = s), (this.s[a][c + 1] = h);
+					((s = l[0]), (h = l[1]), (this.s[a][c] = s), (this.s[a][c + 1] = h));
 				}
 		}
 		var e,
 			t,
-			_n = r.prototype;
+			n = r.prototype;
 		return (
 			(n.setIv = function (r) {
 				if (!b(r))
@@ -330,13 +331,13 @@
 			(n.encode = function (r) {
 				if (!b(r))
 					throw new Error(
-						"Encode data should be a string or an ArrayBuffer / Buffer",
+						"Encode data should be a string or an ArrayBuffer / Buffer"
 					);
 				if (this.mode !== d.ECB && !this.iv) throw new Error("IV is not set");
 				return (
-					(r = ((r, e) => {
+					(r = (function (r, e) {
 						var t = 8 - (r.length % 8);
-						if (8 === t && 0 < r.length && e !== v.PKCS5) return r;
+						if (8 == t && 0 < r.length && e !== v.PKCS5) return r;
 						var n = new Uint8Array(r.length + t),
 							i = [],
 							o = t,
@@ -346,7 +347,7 @@
 								s = t;
 								break;
 							case v.ONE_AND_ZEROS:
-								i.push(128), o--;
+								(i.push(128), o--);
 								break;
 							case v.SPACES:
 								s = 32;
@@ -356,9 +357,9 @@
 								i.push(t);
 								break;
 							}
-							i.push(s), o--;
+							(i.push(s), o--);
 						}
-						return n.set(r), n.set(i, r.length), n;
+						return (n.set(r), n.set(i, r.length), n);
 					})(A(r), this.padding)),
 					this.mode === d.ECB
 						? this._encodeECB(r)
@@ -370,10 +371,10 @@
 			(n.decode = function (r, e) {
 				if ((void 0 === e && (e = o.STRING), !b(r)))
 					throw new Error(
-						"Decode data should be a string or an ArrayBuffer / Buffer",
+						"Decode data should be a string or an ArrayBuffer / Buffer"
 					);
 				if (this.mode !== d.ECB && !this.iv) throw new Error("IV is not set");
-				if ((r = A(r)).length % 8 !== 0)
+				if ((r = A(r)).length % 8 != 0)
 					throw new Error("Decoded data should be multiple of 8 bytes");
 				switch (this.mode) {
 					case d.ECB:
@@ -386,17 +387,17 @@
 					case o.UINT8_ARRAY:
 						return r;
 					case o.STRING:
-						return ((r) => {
+						return (function (r) {
 							for (var e = 0, t = ""; e < r.length; ) {
 								var n = r[e++];
 								if (127 < n)
 									if (191 < n && n < 224) {
 										if (e >= r.length)
-											return console.error("Incomplete 2-byte sequence"), t;
+											return (console.error("Incomplete 2-byte sequence"), t);
 										n = ((31 & n) << 6) | (63 & r[e++]);
 									} else if (223 < n && n < 240) {
 										if (e + 1 >= r.length)
-											return console.error("Incomplete 3-byte sequence"), t;
+											return (console.error("Incomplete 3-byte sequence"), t);
 										n = ((15 & n) << 12) | ((63 & r[e++]) << 6) | (63 & r[e++]);
 									} else {
 										if (!(239 < n && n < 248))
@@ -405,12 +406,12 @@
 													"Unknown multibyte start 0x" +
 														n.toString(16) +
 														" at index " +
-														(e - 1),
+														(e - 1)
 												),
 												t
 											);
 										if (e + 2 >= r.length)
-											return console.error("Incomplete 4-byte sequence"), t;
+											return (console.error("Incomplete 4-byte sequence"), t);
 										n =
 											((7 & n) << 18) |
 											((63 & r[e++]) << 12) |
@@ -424,13 +425,13 @@
 											console.error(
 												"Code point 0x" +
 													n.toString(16) +
-													" exceeds UTF-16 reach",
+													" exceeds UTF-16 reach"
 											),
 											t
 										);
-									(n -= 65536),
+									((n -= 65536),
 										(t += String.fromCharCode((n >> 10) | 55296)),
-										(t += String.fromCharCode((1023 & n) | 56320));
+										(t += String.fromCharCode((1023 & n) | 56320)));
 								}
 							}
 							return t;
@@ -443,22 +444,24 @@
 				for (var t = 0; t < 16; t++) {
 					r = B(r, this.p[t]);
 					var n = [(e = B(e, this._f(r))), r];
-					(r = n[0]), (e = n[1]);
+					((r = n[0]), (e = n[1]));
 				}
 				var i = [e, r];
 				return (
-					(e = B((e = i[1]), this.p[16])), [(r = B((r = i[0]), this.p[17])), e]
+					(e = B((e = i[1]), this.p[16])),
+					[(r = B((r = i[0]), this.p[17])), e]
 				);
 			}),
 			(n._decryptBlock = function (r, e) {
 				for (var t = 17; 1 < t; t--) {
 					r = B(r, this.p[t]);
 					var n = [(e = B(e, this._f(r))), r];
-					(r = n[0]), (e = n[1]);
+					((r = n[0]), (e = n[1]));
 				}
 				var i = [e, r];
 				return (
-					(e = B((e = i[1]), this.p[1])), [(r = B((r = i[0]), this.p[0])), e]
+					(e = B((e = i[1]), this.p[1])),
+					[(r = B((r = i[0]), this.p[0])), e]
 				);
 			}),
 			(n._f = function (r) {
@@ -467,12 +470,12 @@
 			}),
 			(n._encodeECB = function (r) {
 				for (var e = new Uint8Array(r.length), t = 0; t < r.length; t += 8) {
-					var _n = E(r[t], r[t + 1], r[t + 2], r[t + 3]),
-						_i = E(r[t + 4], r[t + 5], r[t + 6], r[t + 7]),
+					var n = E(r[t], r[t + 1], r[t + 2], r[t + 3]),
+						i = E(r[t + 4], r[t + 5], r[t + 6], r[t + 7]),
 						o = this._encryptBlock(n, i),
 						n = o[0],
 						i = o[1];
-					e.set(a(n), t), e.set(a(i), t + 4);
+					(e.set(a(n), t), e.set(a(i), t + 4));
 				}
 				return e;
 			}),
@@ -487,9 +490,12 @@
 				) {
 					var o = E(r[i], r[i + 1], r[i + 2], r[i + 3]),
 						s = E(r[i + 4], r[i + 5], r[i + 6], r[i + 7]),
-						_h = [B(t, o), B(n, s)],
+						h = [B(t, o), B(n, s)],
 						h = this._encryptBlock((o = h[0]), (s = h[1]));
-					(o = h[0]), (n = s = h[1]), e.set(a((t = o)), i), e.set(a(s), i + 4);
+					((o = h[0]),
+						(n = s = h[1]),
+						e.set(a((t = o)), i),
+						e.set(a(s), i + 4));
 				}
 				return e;
 			}),
@@ -500,7 +506,7 @@
 						o = this._decryptBlock(n, i),
 						n = o[0],
 						i = o[1];
-					e.set(a(n), t), e.set(a(i), t + 4);
+					(e.set(a(n), t), e.set(a(i), t + 4));
 				}
 				return e;
 			}),
@@ -515,15 +521,15 @@
 				) {
 					var o = (f = E(r[i], r[i + 1], r[i + 2], r[i + 3])),
 						s = (u = E(r[i + 4], r[i + 5], r[i + 6], r[i + 7])),
-						_h = this._decryptBlock(f, u),
+						h = this._decryptBlock(f, u),
 						f = h[0],
 						u = h[1],
 						h = [B(t, f), B(n, u)];
-					(u = h[1]),
+					((u = h[1]),
 						(t = o),
 						(n = s),
 						e.set(a((f = h[0])), i),
-						e.set(a(u), i + 4);
+						e.set(a(u), i + 4));
 				}
 				return e;
 			}),
@@ -531,15 +537,21 @@
 			(t = [
 				{
 					key: "MODE",
-					get: () => d,
+					get: function () {
+						return d;
+					},
 				},
 				{
 					key: "PADDING",
-					get: () => v,
+					get: function () {
+						return v;
+					},
 				},
 				{
 					key: "TYPE",
-					get: () => o,
+					get: function () {
+						return o;
+					},
 				},
 			]),
 			(n = null) && i(e.prototype, n),
