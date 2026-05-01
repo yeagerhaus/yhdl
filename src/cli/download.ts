@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 import fs from "node:fs";
-import cliProgress from "cli-progress";
 import ora from "ora";
 import pc from "picocolors";
 import { downloadTrack as downloadTrackAPI } from "../api/download.js";
@@ -18,6 +17,7 @@ import {
 } from "../folder-resolver.js";
 import { parseBitrate } from "../utils.js";
 import { loginWithPrompt } from "./auth.js";
+import { createBar } from "./progress.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HELPERS
@@ -76,20 +76,9 @@ function printSummary(downloaded: number, skipped: number, failed: number) {
 }
 
 function createProgressBar() {
-	return new cliProgress.SingleBar({
-		format:
-			pc.dim("  │ ") +
-			pc.cyan("{bar}") +
-			pc.dim(" │ ") +
-			pc.white("{percentage}%") +
-			pc.dim(" │ ") +
-			pc.dim("{value}/{total} tracks"),
-		barCompleteChar: "█",
-		barIncompleteChar: "░",
-		hideCursor: true,
-		clearOnComplete: false,
-		barsize: 25,
-	});
+	return createBar(
+		pc.dim("  │ ") + pc.cyan("{bar}") + pc.dim(" │ ") + pc.white("{percentage}%") + pc.dim(" │ ") + pc.dim("{value}/{total} tracks"),
+	);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

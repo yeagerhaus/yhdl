@@ -2,10 +2,12 @@
 
 import { Command } from "commander";
 import pc from "picocolors";
+import pkg from "../../package.json" with { type: "json" };
 import { loadArl, loadConfig } from "../config.js";
 import { Deezer } from "../deezer/index.js";
 import { loadFailureLog } from "../sync/logger.js";
 import { loadState } from "../sync/state.js";
+import { formatDuration } from "../utils.js";
 
 interface StatusInfo {
 	config: {
@@ -121,18 +123,6 @@ async function getStatus(): Promise<StatusInfo> {
 			artistsInCache: libraryCache?.artists.length,
 		},
 	};
-}
-
-function formatDuration(ms: number): string {
-	const seconds = Math.floor(ms / 1000);
-	const minutes = Math.floor(seconds / 60);
-	const hours = Math.floor(minutes / 60);
-	const days = Math.floor(hours / 24);
-
-	if (days > 0) return `${days}d ${hours % 24}h ago`;
-	if (hours > 0) return `${hours}h ${minutes % 60}m ago`;
-	if (minutes > 0) return `${minutes}m ago`;
-	return `${seconds}s ago`;
 }
 
 function formatDate(isoString?: string): string {
@@ -273,7 +263,7 @@ if (import.meta.main) {
 	program
 		.name("yhdl-status")
 		.description("Show sync status and statistics")
-		.version("1.10.0")
+		.version(pkg.version)
 		.option("--json", "Output as JSON")
 		.parse();
 

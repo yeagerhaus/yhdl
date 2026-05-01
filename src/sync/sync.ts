@@ -1,6 +1,7 @@
 import path from "node:path";
 import cliProgress from "cli-progress";
 import pc from "picocolors";
+import { formatBytes } from "../utils.js";
 import {
 	Deezer,
 	type DiscographyAlbum,
@@ -39,15 +40,19 @@ import {
 } from "./state.js";
 import { generateSummaryFile } from "./summary.js";
 
-/**
- * Format bytes to human-readable string
- */
-function formatBytes(bytes: number): string {
-	if (bytes === 0) return "0 B";
-	const k = 1024;
-	const sizes = ["B", "KB", "MB", "GB"];
-	const i = Math.floor(Math.log(bytes) / Math.log(k));
-	return `${Math.round((bytes / k ** i) * 100) / 100} ${sizes[i]}`;
+function makeBar(
+	format: string,
+	opts: Partial<cliProgress.Options> = {},
+): cliProgress.SingleBar {
+	return new cliProgress.SingleBar({
+		format,
+		barCompleteChar: "█",
+		barIncompleteChar: "░",
+		hideCursor: true,
+		clearOnComplete: false,
+		barsize: 30,
+		...opts,
+	});
 }
 
 export interface SyncOptions {
@@ -342,24 +347,9 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 			}
 			console.log();
 
-			// Create progress bar for scanning
-			const scanProgressBar = new cliProgress.SingleBar({
-				format:
-					pc.dim("  │ ") +
-					pc.cyan("{bar}") +
-					pc.dim(" │ ") +
-					pc.white("{percentage}%") +
-					pc.dim(" │ ") +
-					pc.yellow("{value}") +
-					pc.dim(" artists found") +
-					pc.dim(" │ ") +
-					pc.dim("{message}"),
-				barCompleteChar: "█",
-				barIncompleteChar: "░",
-				hideCursor: true,
-				clearOnComplete: false,
-				barsize: 30,
-			});
+			const scanProgressBar = makeBar(
+				pc.dim("  │ ") + pc.cyan("{bar}") + pc.dim(" │ ") + pc.white("{percentage}%") + pc.dim(" │ ") + pc.yellow("{value}") + pc.dim(" artists found │ ") + pc.dim("{message}"),
+			);
 
 			let _lastProgress: ScanProgress = {
 				artistsFound: 0,
@@ -449,25 +439,9 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 	// Create progress bar for artist checking (only if multiple artists)
 	let artistProgressBar: cliProgress.SingleBar | null = null;
 	if (artistsToProcess.length > 1) {
-		artistProgressBar = new cliProgress.SingleBar({
-			format:
-				pc.dim("  │ ") +
-				pc.cyan("{bar}") +
-				pc.dim(" │ ") +
-				pc.white("{percentage}%") +
-				pc.dim(" │ ") +
-				pc.yellow("{value}") +
-				pc.dim("/") +
-				pc.yellow("{total}") +
-				pc.dim(" artists") +
-				pc.dim(" │ ") +
-				pc.dim("{message}"),
-			barCompleteChar: "█",
-			barIncompleteChar: "░",
-			hideCursor: true,
-			clearOnComplete: false,
-			barsize: 30,
-		});
+		artistProgressBar = makeBar(
+			pc.dim("  │ ") + pc.cyan("{bar}") + pc.dim(" │ ") + pc.white("{percentage}%") + pc.dim(" │ ") + pc.yellow("{value}") + pc.dim("/") + pc.yellow("{total}") + pc.dim(" artists │ ") + pc.dim("{message}"),
+		);
 		artistProgressBar.start(artistsToProcess.length, 0, {
 			message: "Checking artists...",
 		});
@@ -567,25 +541,10 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 				// Create release progress bar for single artist mode
 				if (specificArtist && newReleases.length > 1) {
 					console.log(); // Add spacing before progress bar
-					progressBars.release = new cliProgress.SingleBar({
-						format:
-							pc.dim("  │ ") +
-							pc.magenta("{bar}") +
-							pc.dim(" │ ") +
-							pc.white("{percentage}%") +
-							pc.dim(" │ ") +
-							pc.yellow("{value}") +
-							pc.dim("/") +
-							pc.yellow("{total}") +
-							pc.dim(" releases") +
-							pc.dim(" │ ") +
-							pc.cyan("{message}"),
-						barCompleteChar: "█",
-						barIncompleteChar: "░",
-						hideCursor: true,
-						clearOnComplete: true,
-						barsize: 30,
-					});
+					progressBars.release = makeBar(
+						pc.dim("  │ ") + pc.magenta("{bar}") + pc.dim(" │ ") + pc.white("{percentage}%") + pc.dim(" │ ") + pc.yellow("{value}") + pc.dim("/") + pc.yellow("{total}") + pc.dim(" releases │ ") + pc.cyan("{message}"),
+						{ clearOnComplete: true },
+					);
 					// progressBars.release.start(newReleases.length, 0, { message: "Starting downloads..." });
 				}
 			}
@@ -657,25 +616,10 @@ export async function syncLibrary(options: SyncOptions): Promise<SyncResult> {
 									if (progressBars.track) {
 										progressBars.track.stop();
 									}
-									progressBars.track = new cliProgress.SingleBar({
-										format:
-											pc.dim("    │ ") +
-											pc.green("{bar}") +
-											pc.dim(" │ ") +
-											pc.white("{percentage}%") +
-											pc.dim(" │ ") +
-											pc.yellow("{value}") +
-											pc.dim("/") +
-											pc.yellow("{total}") +
-											pc.dim(" tracks") +
-											pc.dim(" │ ") +
-											pc.cyan("{message}"),
-										barCompleteChar: "█",
-										barIncompleteChar: "░",
-										hideCursor: true,
-										clearOnComplete: true,
-										barsize: 25,
-									});
+									progressBars.track = makeBar(
+										pc.dim("    │ ") + pc.green("{bar}") + pc.dim(" │ ") + pc.white("{percentage}%") + pc.dim(" │ ") + pc.yellow("{value}") + pc.dim("/") + pc.yellow("{total}") + pc.dim(" tracks │ ") + pc.cyan("{message}"),
+										{ clearOnComplete: true, barsize: 25 },
+									);
 									progressBars.track.start(total, 0, {
 										message: track.title.slice(0, 40),
 									});

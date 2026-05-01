@@ -2,8 +2,10 @@
 
 import { Command } from "commander";
 import pc from "picocolors";
+import pkg from "../../package.json" with { type: "json" };
 import { loadConfig } from "../config.js";
 import { loadFailureLog } from "../sync/logger.js";
+import { formatDuration } from "../utils.js";
 
 function formatDate(isoString: string): string {
 	try {
@@ -12,18 +14,6 @@ function formatDate(isoString: string): string {
 	} catch {
 		return isoString;
 	}
-}
-
-function formatDuration(ms: number): string {
-	const seconds = Math.floor(ms / 1000);
-	const minutes = Math.floor(seconds / 60);
-	const hours = Math.floor(minutes / 60);
-	const days = Math.floor(hours / 24);
-
-	if (days > 0) return `${days}d ${hours % 24}h ago`;
-	if (hours > 0) return `${hours}h ${minutes % 60}m ago`;
-	if (minutes > 0) return `${minutes}m ago`;
-	return `${seconds}s ago`;
 }
 
 export async function errorsCommand(opts: {
@@ -134,7 +124,7 @@ if (import.meta.main) {
 	program
 		.name("yhdl-errors")
 		.description("View recent sync errors and failures")
-		.version("1.10.0")
+		.version(pkg.version)
 		.option("--limit <n>", "Maximum number of errors to show", "20")
 		.option("--since <hours>", "Only show errors from last N hours", "24")
 		.option("--json", "Output as JSON")

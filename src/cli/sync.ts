@@ -3,6 +3,7 @@
 import path from "node:path";
 import { Command } from "commander";
 import pc from "picocolors";
+import pkg from "../../package.json" with { type: "json" };
 import { loadConfig } from "../config.js";
 import { Deezer } from "../deezer/index.js";
 import { syncLibrary } from "../sync/sync.js";
@@ -77,7 +78,7 @@ if (import.meta.main) {
 		.description(
 			"Sync entire music library - check all artists for new releases",
 		)
-		.version("1.10.0")
+		.version(pkg.version)
 		.option("--full", "Force check all artists (ignore last check time)")
 		.option("--artist <name>", "Sync specific artist only")
 		.option(

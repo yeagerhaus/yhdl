@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { type Deezer, type GWTrack, TrackFormats } from "../deezer/index.js";
+import { sanitizeFilename } from "../utils.js";
 import { generateCryptedStreamURL } from "./crypto.js";
 import { type ProgressCallback, streamTrack } from "./decryption.js";
 import { downloadCover, tagTrack } from "./tagger.js";
@@ -249,11 +250,3 @@ export class Downloader {
 	}
 }
 
-function sanitizeFilename(name: string): string {
-	// Remove or replace invalid filename characters
-	return name
-		.replace(/[<>:"/\\|?*]/g, "_")
-		.replace(/\s+/g, " ")
-		.trim()
-		.slice(0, 200); // Limit length
-}

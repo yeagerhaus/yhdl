@@ -2,6 +2,7 @@
 
 import { Command } from "commander";
 import pc from "picocolors";
+import pkg from "../package.json" with { type: "json" };
 import { downloadArtist, downloadTrack } from "./cli/download.js";
 import { errorsCommand } from "./cli/errors.js";
 import { statusCommand } from "./cli/status.js";
@@ -15,7 +16,7 @@ program
 	.description(
 		"Download artist discographies from Deezer with intelligent folder management",
 	)
-	.version("1.10.0");
+	.version(pkg.version);
 
 // Download command (existing functionality)
 program
